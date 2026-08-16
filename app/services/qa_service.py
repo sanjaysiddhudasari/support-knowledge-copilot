@@ -1,8 +1,19 @@
+from typing import TypedDict
+
 from app.generation.answerability import AnswerabilityDetector
 from app.generation.citation_verifier import CitationVerifier
 from app.generation.generator import AnswerGenerator
-from app.retrieval.retrieval_service import RetrievalService
+from app.models.answer import Answerability, Citation
+from app.services.retrieval_service import RetrievalService
 from app.services.confidence import ConfidenceScorer
+
+
+class QAAnswerResult(TypedDict):
+    answer: str
+    citations: list[Citation]
+    answerability: Answerability
+    confidence: float
+    confidence_breakdown: dict[str, float]
 
 
 class QAService:
@@ -24,7 +35,7 @@ class QAService:
     def answer(
         self,
         query: str,
-    ):
+    ) -> QAAnswerResult:
 
         results = self.retrieval_service.retrieve(
             query=query,

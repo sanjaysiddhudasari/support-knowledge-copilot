@@ -64,6 +64,22 @@ class CitationVerifier:
 
                 continue
 
+            if not citation.claim.strip():
+
+                verified_citations.append(
+                    citation.model_copy(
+                        update={
+                            "supported": False,
+                            "explanation": (
+                                "The citation did not have an "
+                                "associated claim."
+                            ),
+                        }
+                    )
+                )
+
+                continue
+
             verdict = self._verify_claim(
                 claim=citation.claim,
                 evidence=chunk.text,
@@ -107,20 +123,23 @@ CLAIM:
 EVIDENCE:
 {evidence}
 
-Return ONLY valid JSON:
+Return ONLY valid JSON.
+Do not include markdown or any additional text.
+
+The JSON must have exactly these fields:
 
 {{
-    "supported": true or false,
+    "supported": true,
     "explanation": "brief explanation"
 }}
 """
 
-        response = self.client.responses.create(
+        response = self.client.chat.completions.create(
             model=self.model,
-            input=prompt,
+            messages=[{"role": "user", "content": prompt}],
         )
 
-        raw_output = response.output_text.strip()
+        raw_output = (response.choices[0].message.content or "").strip()
 
         try:
             result = json.loads(raw_output)

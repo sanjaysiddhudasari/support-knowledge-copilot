@@ -5,6 +5,9 @@ from openai import OpenAI
 
 from app.models.answer import GeneratedAnswer
 from app.generation.citation_parser import parse_citations
+from app.evaluation.citation_utils import (
+    deduplicate_citations,
+)
 
 class AnswerGenerator:
 
@@ -61,12 +64,46 @@ documentation.
 Rules:
 1. Do not use outside knowledge.
 2. Do not invent information.
-3. Every factual claim must have a citation.
-4. Every factual claim must have a citation.
-5. Only include information that directly helps answer the user's question.
-6. Do not include unrelated facts from the documentation.
-7. If the documentation does not contain enough information,
+3. Only include information that directly helps answer the user's question.
+4. Do not include unrelated facts from the documentation.
+5. If the documentation does not contain enough information,
    clearly say that you could not verify the answer.
+
+CITATION RULES:
+
+1. Every factual claim based on retrieved documentation must have
+   a citation.
+2. Cite the SINGLE chunk that most directly supports the claim.
+3. Do NOT cite multiple chunks when one chunk is sufficient.
+4. Only cite multiple chunks when the claim genuinely requires
+   information from multiple pieces of evidence.
+5. Do NOT cite a chunk merely because it is related to the topic.
+6. Do NOT repeat the same citation for the same claim.
+7. Keep citations immediately after the claim they support.
+8. Do not place citations inside code blocks.
+9. Do not add citations to statements that are not supported
+   by the cited evidence.
+10. If evidence is insufficient, say that the documentation
+    does not provide enough information instead of guessing.
+
+Example:
+
+The default upload limit is 10 GB per file.
+[file-storage.md_chunk_3]
+
+BAD:
+
+The default upload limit is 10 GB per file.
+[file-storage.md_chunk_3]
+[security.md_chunk_4]
+[release-notes.md_chunk_4]
+
+unless all three chunks independently support the claim.
+
+GOOD:
+
+The default upload limit is 10 GB per file.
+[file-storage.md_chunk_3]
 
 User question:
 {query}
@@ -83,13 +120,14 @@ You can reset your password from Account Settings.
 [password-policy.md_chunk_2]
 """
 
-        response = self.client.responses.create(
+        response = self.client.chat.completions.create(
             model=self.model,
-            input=prompt,
+            messages=[{"role": "user", "content": prompt}],
         )
 
-        answer = response.output_text
+        answer = response.choices[0].message.content or ""
         citations=parse_citations(answer)
+        citations=deduplicate_citations(citations=citations)
 
         return GeneratedAnswer(
             answer=answer,

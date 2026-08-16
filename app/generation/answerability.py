@@ -79,12 +79,12 @@ Return ONLY valid JSON:
 }}
 """
 
-        response = self.client.responses.create(
+        response = self.client.chat.completions.create(
             model=self.model,
-            input=prompt,
+            messages=[{"role": "user", "content": prompt}],
         )
 
-        raw_output = response.output_text.strip()
+        raw_output = (response.choices[0].message.content or "").strip()
 
         try:
             result = json.loads(raw_output)

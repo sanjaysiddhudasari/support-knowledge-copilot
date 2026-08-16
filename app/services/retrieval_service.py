@@ -73,3 +73,52 @@ class RetrievalService:
         raise ValueError(
             f"Unknown retrieval strategy: {strategy}"
         )
+
+
+    def retrieve_diagnostic(
+        self,
+        query: str,
+        candidate_k: int = 20,
+    ):
+            """
+            Return the top candidates from every retrieval stage.
+
+            This is used only for evaluation/debugging.
+            It does not change normal retrieval behavior.
+            """
+
+            dense_results = (
+                self.dense_retriever.retrieve(
+                    query=query,
+                    top_k=candidate_k,
+                )
+            )
+
+            bm25_results = (
+                self.bm25_retriever.retrieve(
+                    query=query,
+                    top_k=candidate_k,
+                )
+            )
+
+            hybrid_results = (
+                self.hybrid_retriever.retrieve(
+                    query=query,
+                    top_k=candidate_k,
+                )
+            )
+
+            reranked_results = (
+                self.reranker.rerank(
+                    query=query,
+                    results=hybrid_results,
+                    top_k=candidate_k,
+                )
+            )
+
+            return {
+                "dense": dense_results,
+                "bm25": bm25_results,
+                "hybrid": hybrid_results,
+                "hybrid_rerank": reranked_results,
+            }
