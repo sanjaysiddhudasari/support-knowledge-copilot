@@ -8,3 +8,4 @@ dist/
 build/
 chroma_db/
 qdrant_data/
+.streamlit/secrets.toml
