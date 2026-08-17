@@ -1,0 +1,35 @@
+services:
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: support-copilot-api
+
+    env_file:
+      - .env
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - ./data:/app/data
+
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+
+    container_name: support-copilot-ui
+
+    depends_on:
+      - api
+
+    environment:
+      API_URL: http://api:8000/api/query
+      UPLOAD_URL: http://api:8000/api/documents
+
+    ports:
+      - "8501:8501"

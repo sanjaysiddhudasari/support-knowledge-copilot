@@ -1,7 +1,26 @@
 from fastapi import FastAPI
 
-app = FastAPI(title="Support Knowledge Copilot", version="0.1.0")
+from app.api.routes import router
+from app.api.ingestion import router as ingestion_router
+
+
+app = FastAPI(
+    title="Support Knowledge Copilot",
+    description=(
+        "RAG-based support knowledge assistant "
+        "with verified citations."
+    ),
+    version="1.0.0",
+)
+
+
+app.include_router(router)
+app.include_router(ingestion_router)
+
 
 @app.get("/health")
-async def health():
-    return {"status": "ok"}
+def health():
+
+    return {
+        "status": "ok"
+    }

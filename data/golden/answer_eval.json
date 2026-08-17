@@ -1,0 +1,1822 @@
+{
+  "summary": {
+    "total_questions": 70,
+    "answerability_accuracy": 0.8571,
+    "answerable_questions": 60,
+    "no_answer_questions": 10,
+    "citation_validity_rate": 1.0,
+    "citation_support_rate": 0.9277,
+    "total_citations": 83,
+    "average_confidence": 0.6666
+  },
+  "questions": [
+    {
+      "id": "SF-01",
+      "question": "Where can a user reset a forgotten password?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "account-recovery.md_chunk_2"
+      ],
+      "generated_answer": "You can reset a forgotten password by going to https://app.acmecloud.com, selecting \u201cForgot Password,\u201d entering your account email, and using the emailed reset link to set a new password. [account-recovery.md_chunk_2]\n\nAn administrator can also reset a user\u2019s password from the Admin Console under Users, which issues a temporary password that must be changed at the next sign-in. [password-policy.md_chunk_6]",
+      "citations": [
+        {
+          "chunk_id": "account-recovery.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly lists the same steps described in the claim: going to the URL, selecting 'Forgot Password', entering the account email, and using the emailed reset link to set a new password."
+        },
+        {
+          "chunk_id": "password-policy.md_chunk_6",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that administrators can reset a user's password from the Admin Console under Users, and that the reset generates a temporary password which must be changed at the next sign-in."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9995,
+      "citation_chunks": [
+        "account-recovery.md_chunk_2",
+        "password-policy.md_chunk_6"
+      ]
+    },
+    {
+      "id": "SF-02",
+      "question": "What are the password requirements in AcmeCloud?",
+      "expected_answerable": true,
+      "actual_answerable": false,
+      "expected_chunks": [
+        "password-policy.md_chunk_2"
+      ],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "SF-03",
+      "question": "How do I enable multi-factor authentication?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "mfa.md_chunk_2"
+      ],
+      "generated_answer": "To enable multi-factor authentication:\n\n1. Sign in and open Account Settings.\n2. Select Security, then Multi-Factor Authentication.\n3. Select Enroll.\n4. Scan the QR code with your authenticator app.\n5. Enter the six-digit code shown in the app to confirm.\n6. Save your backup codes.\n\n[mfa.md_chunk_2]",
+      "citations": [
+        {
+          "chunk_id": "mfa.md_chunk_2",
+          "valid": true,
+          "supported": false,
+          "explanation": "The claim refers to an unspecified answer and preceding statement, and the evidence does not clarify or support that citation."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 1,
+      "confidence": 0.6998,
+      "citation_chunks": [
+        "mfa.md_chunk_2"
+      ]
+    },
+    {
+      "id": "SF-04",
+      "question": "How long are deleted files kept in Trash before they are permanently deleted?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "file-storage.md_chunk_6"
+      ],
+      "generated_answer": "Deleted files are kept in Trash for 30 days before being permanently deleted. During this period they can be restored. Enterprise administrators can extend this period.\n[file-storage.md_chunk_6]",
+      "citations": [
+        {
+          "chunk_id": "file-storage.md_chunk_6",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly matches the claim: files are kept in Trash for 30 days, restorable during this period, then permanently deleted, and enterprise administrators can extend this period."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 1.0,
+      "citation_chunks": [
+        "file-storage.md_chunk_6"
+      ]
+    },
+    {
+      "id": "SF-05",
+      "question": "What is the default maximum file upload size?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "file-storage.md_chunk_3"
+      ],
+      "generated_answer": "The default maximum file upload size is 10 GB per file.\n[file-storage.md_chunk_3]",
+      "citations": [
+        {
+          "chunk_id": "file-storage.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states the maximum upload size is 10 GB per file by default."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 1.0,
+      "citation_chunks": [
+        "file-storage.md_chunk_3"
+      ]
+    },
+    {
+      "id": "SF-06",
+      "question": "How many backup codes are generated when enabling MFA?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "mfa.md_chunk_4"
+      ],
+      "generated_answer": "AcmeCloud generates 10 single-use backup codes when you enable MFA.\n[mfa.md_chunk_4]",
+      "citations": [
+        {
+          "chunk_id": "mfa.md_chunk_4",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that when MFA is enabled, AcmeCloud generates 10 single-use backup codes."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 1.0,
+      "citation_chunks": [
+        "mfa.md_chunk_4"
+      ]
+    },
+    {
+      "id": "SF-07",
+      "question": "What is the standard API rate limit?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "api.md_chunk_7"
+      ],
+      "generated_answer": "The standard API rate limit is 1,000 requests per minute per API key. Enterprise organizations can request higher limits.\n[api.md_chunk_7]",
+      "citations": [
+        {
+          "chunk_id": "api.md_chunk_7",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence explicitly states the standard rate limit is 1,000 requests per minute per API key and that enterprise organizations can request higher limits."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9999,
+      "citation_chunks": [
+        "api.md_chunk_7"
+      ]
+    },
+    {
+      "id": "SF-08",
+      "question": "What are the four organization roles in AcmeCloud?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "user-management.md_chunk_3"
+      ],
+      "generated_answer": "The four organization roles in AcmeCloud are Owner, Admin, Member, and Viewer.\n[user-management.md_chunk_3]",
+      "citations": [
+        {
+          "chunk_id": "user-management.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence lists exactly the four organization roles: Owner, Admin, Member, and Viewer."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.992,
+      "citation_chunks": [
+        "user-management.md_chunk_3"
+      ]
+    },
+    {
+      "id": "SF-09",
+      "question": "How long does a user invitation stay valid if it is not accepted?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "user-management.md_chunk_2"
+      ],
+      "generated_answer": "A user invitation stays valid for 7 days if not accepted.\n[user-management.md_chunk_2]",
+      "citations": [
+        {
+          "chunk_id": "user-management.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states that invitations expire after 7 days if not accepted."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9997,
+      "citation_chunks": [
+        "user-management.md_chunk_2"
+      ]
+    },
+    {
+      "id": "SF-10",
+      "question": "Where can an administrator view the access log, and how long are logs kept?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "security.md_chunk_7"
+      ],
+      "generated_answer": "Administrators can view the access log from the Admin Console, and logs are retained for 1 year.\n[security.md_chunk_7]",
+      "citations": [
+        {
+          "chunk_id": "security.md_chunk_7",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states administrators can view the access log from the Admin Console and that logs are retained for 1 year, directly supporting the claim."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9998,
+      "citation_chunks": [
+        "security.md_chunk_7"
+      ]
+    },
+    {
+      "id": "SF-11",
+      "question": "What encryption does AcmeCloud use for data at rest?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "security.md_chunk_6"
+      ],
+      "generated_answer": "AcmeCloud encrypts data at rest using AES-256, and encryption is always enabled and cannot be disabled.\n[security.md_chunk_6]",
+      "citations": [
+        {
+          "chunk_id": "security.md_chunk_6",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that AcmeCloud encrypts data at rest using AES-256 and that encryption is always enabled and cannot be disabled."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 1.0,
+      "citation_chunks": [
+        "security.md_chunk_6"
+      ]
+    },
+    {
+      "id": "SF-12",
+      "question": "What is the default expiration for a share link?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "file-sharing.md_chunk_4"
+      ],
+      "generated_answer": "Share links expire after 7 days by default. [file-sharing.md_chunk_4]",
+      "citations": [
+        {
+          "chunk_id": "file-sharing.md_chunk_4",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence explicitly states that share links expire after 7 days by default."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9999,
+      "citation_chunks": [
+        "file-sharing.md_chunk_4"
+      ]
+    },
+    {
+      "id": "SF-13",
+      "question": "How do I sign out of AcmeCloud?",
+      "expected_answerable": true,
+      "actual_answerable": false,
+      "expected_chunks": [
+        "authentication.md_chunk_4"
+      ],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "SF-14",
+      "question": "What is the base URL for the AcmeCloud REST API?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "api.md_chunk_1"
+      ],
+      "generated_answer": "The base URL for the AcmeCloud REST API is https://api.acmecloud.com.\n[api.md_chunk_1]",
+      "citations": [
+        {
+          "chunk_id": "api.md_chunk_1",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence explicitly states that the base URL is https://api.acmecloud.com."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9999,
+      "citation_chunks": [
+        "api.md_chunk_1"
+      ]
+    },
+    {
+      "id": "SF-15",
+      "question": "Who receives the monthly invoice email?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "billing.md_chunk_3"
+      ],
+      "generated_answer": "The billing owner receives the monthly invoice email.  \n[billing.md_chunk_3]",
+      "citations": [
+        {
+          "chunk_id": "billing.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states that the billing owner receives invoice notifications by email, which supports the claim."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.999,
+      "citation_chunks": [
+        "billing.md_chunk_3"
+      ]
+    },
+    {
+      "id": "PA-01",
+      "question": "How do I recover access if I can't remember my password?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "account-recovery.md_chunk_2"
+      ],
+      "generated_answer": "If you forgot your password but still have access to your account email and MFA, use the self-service password reset:\n\n1. Go to https://app.acmecloud.com.\n2. Select \"Forgot Password\".\n3. Enter your account email address.\n4. Check your email for a reset link.\n5. Open the link and set a new password.\n\nThe reset link is valid for 30 minutes. Resetting your password does not disable MFA and does not change files, projects, or permissions.\n[account-recovery.md_chunk_2]\n\nIf you cannot access your account email, you cannot use the self-service reset. In that case, contact your organization administrator, who can verify your identity and initiate recovery from the Admin Console.\n[account-recovery.md_chunk_3]",
+      "citations": [
+        {
+          "chunk_id": "account-recovery.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states the reset link is valid for 30 minutes and that a password reset does not disable MFA or change any files, projects, or permissions."
+        },
+        {
+          "chunk_id": "account-recovery.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that without account email access, self-service password reset cannot be used, and the required alternative is to contact an administrator who verifies identity and initiates recovery from the Admin Console."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9992,
+      "citation_chunks": [
+        "account-recovery.md_chunk_2",
+        "account-recovery.md_chunk_3"
+      ]
+    },
+    {
+      "id": "PA-02",
+      "question": "What makes a password strong enough to be accepted?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "password-policy.md_chunk_2"
+      ],
+      "generated_answer": "A password is accepted if it meets all of these requirements:\n\n- At least 12 characters long.\n- Contains at least one uppercase letter (A\u2013Z).\n- Contains at least one lowercase letter (a\u2013z).\n- Contains at least one number (0\u20139).\n- Contains at least one special character (for example !, @, #, or %).\n\nPasswords longer than 12 characters are encouraged but not required.\n[password-policy.md_chunk_2]",
+      "citations": [
+        {
+          "chunk_id": "password-policy.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that passwords longer than 12 characters are encouraged but not required."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.6007,
+      "citation_chunks": [
+        "password-policy.md_chunk_2"
+      ]
+    },
+    {
+      "id": "PA-03",
+      "question": "I want a second layer of protection on my login. How do I turn it on?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "mfa.md_chunk_2"
+      ],
+      "generated_answer": "To add a second layer of protection to your login, enable Multi-Factor Authentication (MFA). MFA adds a second verification step to sign-in using a time-based one-time password (TOTP) from an authenticator app, so signing in requires both your password and a six-digit code. [mfa.md_chunk_1]\n\nTo turn it on:\n\n1. Sign in and open Account Settings.\n2. Select Security, then Multi-Factor Authentication.\n3. Select Enroll.\n4. Scan the QR code with your authenticator app.\n5. Enter the six-digit code shown in the app to confirm.\n6. Save your backup codes.\n\n[mfa.md_chunk_2]",
+      "citations": [
+        {
+          "chunk_id": "mfa.md_chunk_1",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states that MFA adds a second verification step to sign-in using a TOTP from an authenticator app, and that signing in requires both password and six-digit code, which directly supports the claim."
+        },
+        {
+          "chunk_id": "mfa.md_chunk_2",
+          "valid": true,
+          "supported": false,
+          "explanation": "There is no preceding statement or answer to which the evidence could be cited."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 0.5,
+      "unsupported_citations": 1,
+      "confidence": 0.45,
+      "citation_chunks": [
+        "mfa.md_chunk_1",
+        "mfa.md_chunk_2"
+      ]
+    },
+    {
+      "id": "PA-04",
+      "question": "If I leave my session idle, when will I be logged out automatically?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "authentication.md_chunk_3"
+      ],
+      "generated_answer": "If you leave your session idle, it expires after 30 minutes of inactivity by default and you\u2019ll be returned to the sign-in page. [authentication.md_chunk_3]\n\nAdministrators can adjust this timeout to anywhere between 15 and 120 minutes. [security.md_chunk_2]\n\nAlso, closing your browser tab does not sign you out; the session remains valid until the inactivity timeout is reached. [authentication.md_chunk_4]",
+      "citations": [
+        {
+          "chunk_id": "authentication.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that sessions expire after 30 minutes of inactivity by default and users are returned to the sign-in page."
+        },
+        {
+          "chunk_id": "security.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states valid values for the session_timeout setting are between 15 and 120 minutes, which administrators configure."
+        },
+        {
+          "chunk_id": "authentication.md_chunk_4",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that closing the browser tab does not sign you out and that the session remains valid until the inactivity timeout is reached, which matches the claim."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.6806,
+      "citation_chunks": [
+        "authentication.md_chunk_3",
+        "security.md_chunk_2",
+        "authentication.md_chunk_4"
+      ]
+    },
+    {
+      "id": "PA-05",
+      "question": "How long do I have to get a file back after deleting it?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "file-storage.md_chunk_6"
+      ],
+      "generated_answer": "You have 30 days to restore a deleted file. After 30 days, it is permanently deleted. Enterprise administrators can extend this period.\n[file-storage.md_chunk_6]",
+      "citations": [
+        {
+          "chunk_id": "file-storage.md_chunk_6",
+          "valid": true,
+          "supported": true,
+          "explanation": "Evidence directly states deleted files are retained for 30 days, can be restored during that period, are permanently deleted after 30 days, and that enterprise administrators can extend this period."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9979,
+      "citation_chunks": [
+        "file-storage.md_chunk_6"
+      ]
+    },
+    {
+      "id": "PA-06",
+      "question": "Is there a cap on how big a single file I can put in a project?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "file-storage.md_chunk_3"
+      ],
+      "generated_answer": "Yes. There is a cap on a single file in a project: the default maximum upload size is 10 GB per file, and administrators can change this to any value between 1 GB and 50 GB using the `max_file_size` setting. Attempts to upload a larger file fail with error ACM-409.\n\n[file-storage.md_chunk_3]",
+      "citations": [
+        {
+          "chunk_id": "file-storage.md_chunk_3",
+          "valid": true,
+          "supported": false,
+          "explanation": "The evidence discusses file size limits and does not mention anything about citations or preceding statements, so it cannot support the claim."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 1,
+      "confidence": 0.3021,
+      "citation_chunks": [
+        "file-storage.md_chunk_3"
+      ]
+    },
+    {
+      "id": "PA-07",
+      "question": "Can someone who isn't part of my company still open a file I send them a link to?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "file-sharing.md_chunk_2"
+      ],
+      "generated_answer": "Yes. If you create a share link, anyone with the link can access the file according to the chosen link permission, even if they are not an AcmeCloud user. [file-sharing.md_chunk_2]\n\nFor View links, recipients can open and download the file without modifying it. [file-sharing.md_chunk_3] Edit links require the recipient to sign in to AcmeCloud. [file-sharing.md_chunk_3]",
+      "citations": [
+        {
+          "chunk_id": "file-sharing.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence explicitly states that anyone with the link can access the file according to the link permission, even if they are not an AcmeCloud user."
+        },
+        {
+          "chunk_id": "file-sharing.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states View permission allows the recipient to open and download the file but cannot modify it."
+        },
+        {
+          "chunk_id": "file-sharing.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states View links allow recipients to open and download the file but cannot modify it, and Edit links require sign-in to AcmeCloud."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.8098,
+      "citation_chunks": [
+        "file-sharing.md_chunk_2",
+        "file-sharing.md_chunk_3",
+        "file-sharing.md_chunk_3"
+      ]
+    },
+    {
+      "id": "PA-08",
+      "question": "When automating against AcmeCloud, how does my script prove its identity?",
+      "expected_answerable": true,
+      "actual_answerable": false,
+      "expected_chunks": [
+        "api.md_chunk_2"
+      ],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "PA-09",
+      "question": "If an employee leaves temporarily, should I block their account or remove it?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "user-management.md_chunk_4"
+      ],
+      "generated_answer": "If an employee leaves temporarily, you should disable their account rather than delete it. Disabling blocks sign-in immediately while preserving their files and history. [user-management.md_chunk_4]",
+      "citations": [
+        {
+          "chunk_id": "user-management.md_chunk_4",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states that disabling blocks sign-in immediately but preserves files and history, and that disabling is preferred over deleting when an employee leaves temporarily."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9997,
+      "citation_chunks": [
+        "user-management.md_chunk_4"
+      ]
+    },
+    {
+      "id": "PA-10",
+      "question": "How often will AcmeCloud force me to pick a new password?",
+      "expected_answerable": true,
+      "actual_answerable": false,
+      "expected_chunks": [
+        "password-policy.md_chunk_3"
+      ],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "MC-01",
+      "question": "How do I change my password, and what rules must the new one follow?",
+      "expected_answerable": true,
+      "actual_answerable": false,
+      "expected_chunks": [
+        "password-policy.md_chunk_5",
+        "password-policy.md_chunk_2"
+      ],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "MC-02",
+      "question": "How many backup codes do I get, and how do I use one to recover a lost MFA device?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "mfa.md_chunk_4",
+        "mfa.md_chunk_5"
+      ],
+      "generated_answer": "You get 10 single-use backup codes when you enable MFA.\n[mfa.md_chunk_4]\n\nTo recover a lost MFA device:\n1. Sign in with your password and select \u201cUse a backup code\u201d.\n2. Enter one of your backup codes.\n3. Enroll a new device.\n[mfa.md_chunk_5]\n\nIf you have no backup codes, contact your organization administrator, who can reset your MFA from the Admin Console.\n[mfa.md_chunk_5]",
+      "citations": [
+        {
+          "chunk_id": "mfa.md_chunk_4",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that enabling MFA generates 10 single-use backup codes."
+        },
+        {
+          "chunk_id": "mfa.md_chunk_5",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly lists the same three steps for recovering a lost MFA device."
+        },
+        {
+          "chunk_id": "mfa.md_chunk_5",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that if you have no backup codes, you should contact your organization administrator, who can reset your MFA from the Admin Console."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9995,
+      "citation_chunks": [
+        "mfa.md_chunk_4",
+        "mfa.md_chunk_5",
+        "mfa.md_chunk_5"
+      ]
+    },
+    {
+      "id": "MC-03",
+      "question": "How do I invite a new user, and what is the difference between disabling and deleting an account?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "user-management.md_chunk_2",
+        "user-management.md_chunk_4"
+      ],
+      "generated_answer": "To invite a new user:\n\n1. Open the Admin Console and select Users.\n2. Select Invite User.\n3. Enter the new user's email address.\n4. Choose a role.\n5. Select Send Invite.\n\nThe invitee receives an email with a link to set up their account. Invitations expire after 7 days if not accepted.\n[user-management.md_chunk_2]\n\nDifference between disabling and deleting:\n\nDisabling a user blocks sign-in immediately but preserves their files and history. Deleting a user removes the account and transfers ownership of their files to an administrator, which is required before deletion. Prefer disabling over deleting when an employee leaves temporarily.\n[user-management.md_chunk_4]",
+      "citations": [
+        {
+          "chunk_id": "user-management.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states the invitee receives an email with a setup link and that invitations expire after 7 days."
+        },
+        {
+          "chunk_id": "user-management.md_chunk_4",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly matches the claim, stating disabling blocks sign-in and preserves files/history, deletion removes account and transfers files to an administrator, and preferring disabling for temporary leaves."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9955,
+      "citation_chunks": [
+        "user-management.md_chunk_2",
+        "user-management.md_chunk_4"
+      ]
+    },
+    {
+      "id": "MC-04",
+      "question": "What are the organization roles, and what are the project roles?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "access-control.md_chunk_3",
+        "access-control.md_chunk_6"
+      ],
+      "generated_answer": "The organization roles are Owner, Admin, Member, and Viewer.  \n[access-control.md_chunk_3]\n\nThe project roles are Owner, Editor, and Viewer.  \n[access-control.md_chunk_6]\n\nProject roles are independent of organization roles.  \n[access-control.md_chunk_6]",
+      "citations": [
+        {
+          "chunk_id": "access-control.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence explicitly lists the organization roles as Owner, Admin, Member, and Viewer."
+        },
+        {
+          "chunk_id": "access-control.md_chunk_6",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence explicitly states that each project has roles Owner, Editor, and Viewer."
+        },
+        {
+          "chunk_id": "access-control.md_chunk_6",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states directly that project roles are independent of organization roles."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9999,
+      "citation_chunks": [
+        "access-control.md_chunk_3",
+        "access-control.md_chunk_6",
+        "access-control.md_chunk_6"
+      ]
+    },
+    {
+      "id": "MC-05",
+      "question": "How do I create a share link, and how long does it stay valid by default?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "file-sharing.md_chunk_2",
+        "file-sharing.md_chunk_4"
+      ],
+      "generated_answer": "To create a share link:\n\n1. Open the file and select **Share**.\n2. Choose the link permission: **View** (read-only) or **Edit**.\n3. Set an expiration (optional) and a password (optional).\n4. Select **Create Link**, then copy the URL.\n[file-sharing.md_chunk_2]\n\nShare links expire after **7 days by default**. You can set an expiration up to 90 days, or choose \"Never\" for links that should not expire.\n[file-sharing.md_chunk_4]",
+      "citations": [
+        {
+          "chunk_id": "file-sharing.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly restates the same steps as the claim."
+        },
+        {
+          "chunk_id": "file-sharing.md_chunk_4",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states share links expire after 7 days by default, and expiration can be set up to 90 days or 'Never'."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9996,
+      "citation_chunks": [
+        "file-sharing.md_chunk_2",
+        "file-sharing.md_chunk_4"
+      ]
+    },
+    {
+      "id": "MC-06",
+      "question": "Which API error signals rate limiting, and what is the standard rate limit?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "api.md_chunk_8",
+        "api.md_chunk_7"
+      ],
+      "generated_answer": "The API signals rate limiting with error code ACM-429, which includes a Retry-After header, and the standard rate limit is 1,000 requests per minute per API key.\n[api.md_chunk_7]",
+      "citations": [
+        {
+          "chunk_id": "api.md_chunk_7",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states the standard rate limit is 1,000 requests per minute per API key and that exceeding it returns ACM-429 with a Retry-After header."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9995,
+      "citation_chunks": [
+        "api.md_chunk_7"
+      ]
+    },
+    {
+      "id": "MC-07",
+      "question": "Can I restore an older version of a file, and can I recover a file I deleted?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "file-storage.md_chunk_5",
+        "file-storage.md_chunk_6"
+      ],
+      "generated_answer": "Yes.\n\nYou can restore an older version of a file from its version history; AcmeCloud keeps the last 10 versions of each file automatically.  \n[file-storage.md_chunk_5]\n\nDeleted files are moved to Trash and retained for 30 days. During that period, you can restore them. After 30 days, they are permanently deleted, though enterprise administrators can extend the retention period.  \n[file-storage.md_chunk_6]",
+      "citations": [
+        {
+          "chunk_id": "file-storage.md_chunk_5",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that AcmeCloud keeps the last 10 versions automatically and that you can restore an earlier version from the version history."
+        },
+        {
+          "chunk_id": "file-storage.md_chunk_6",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly matches the claim."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9993,
+      "citation_chunks": [
+        "file-storage.md_chunk_5",
+        "file-storage.md_chunk_6"
+      ]
+    },
+    {
+      "id": "MC-08",
+      "question": "What notification types exist, and can I turn off security alerts?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "notifications.md_chunk_2",
+        "notifications.md_chunk_5"
+      ],
+      "generated_answer": "The notification types are:\n\n- Project updates\n- File changes\n- Security alerts\n- Billing\n- Digests\n[notifications.md_chunk_2]\n\nSecurity alerts cannot be disabled; they always send. Regular notifications, such as file-change emails, can be disabled by the user in Notification Settings.\n[notifications.md_chunk_5]",
+      "citations": [
+        {
+          "chunk_id": "notifications.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly lists all five notification types matching the claim."
+        },
+        {
+          "chunk_id": "notifications.md_chunk_5",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states security alerts cannot be disabled and regular notifications can be disabled, matching the claim."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9962,
+      "citation_chunks": [
+        "notifications.md_chunk_2",
+        "notifications.md_chunk_5"
+      ]
+    },
+    {
+      "id": "MC-09",
+      "question": "Which security settings can an administrator configure, and what are their default values?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "security.md_chunk_2",
+        "security.md_chunk_3",
+        "security.md_chunk_4",
+        "security.md_chunk_5"
+      ],
+      "generated_answer": "Administrators can configure these security settings:\n\n- **session_timeout**: Session inactivity timeout. Default is 30 minutes; valid values are between 15 and 120 minutes.\n[security.md_chunk_2]\n\n- **password_expiry**: Password expiration period. Default is 90 days; valid values are between 30 and 180 days.\n[password-policy.md_chunk_7]\n\n- **api_key_expiry**: API key expiration period. Default is 90 days; valid values are between 30 and 180 days.\n[security.md_chunk_5]",
+      "citations": [
+        {
+          "chunk_id": "security.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states the default session timeout is 30 minutes and valid values are between 15 and 120 minutes, matching the claim."
+        },
+        {
+          "chunk_id": "password-policy.md_chunk_7",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence explicitly states password_expiry can be configured between 30\u2013180 days with a default of 90 days."
+        },
+        {
+          "chunk_id": "security.md_chunk_5",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states the default is 90 days and valid values are between 30 and 180 days."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9986,
+      "citation_chunks": [
+        "security.md_chunk_2",
+        "password-policy.md_chunk_7",
+        "security.md_chunk_5"
+      ]
+    },
+    {
+      "id": "MC-10",
+      "question": "I can't sign in. What recovery procedures exist, and which one applies if I have lost access to my email?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "account-recovery.md_chunk_1",
+        "account-recovery.md_chunk_2",
+        "account-recovery.md_chunk_3"
+      ],
+      "generated_answer": "The documentation lists three recovery procedures: password reset (if you forgot your password but still control your email and MFA), MFA recovery (if you lost your MFA device), and account recovery (if you lost access to both your email and MFA). [account-recovery.md_chunk_1]\n\nIf you have lost access to your email, the applicable procedure is account recovery. You cannot use self-service password reset; instead, contact your organization administrator, who verifies your identity out of band, initiates recovery from the Admin Console, and gives you a temporary password that must be changed at your next sign-in. [account-recovery.md_chunk_3]",
+      "citations": [
+        {
+          "chunk_id": "account-recovery.md_chunk_1",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence explicitly lists the same three recovery procedures with matching descriptions as the claim."
+        },
+        {
+          "chunk_id": "account-recovery.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly describes the account recovery procedure for lost email access, including contacting the administrator, out-of-band verification, Admin Console initiation, and a temporary password change at next sign-in."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9997,
+      "citation_chunks": [
+        "account-recovery.md_chunk_1",
+        "account-recovery.md_chunk_3"
+      ]
+    },
+    {
+      "id": "MD-01",
+      "question": "What is the default session inactivity timeout, and to what values can an administrator change it?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "authentication.md_chunk_3",
+        "security.md_chunk_2"
+      ],
+      "generated_answer": "The default session inactivity timeout is 30 minutes. An administrator can change it to any value between 15 and 120 minutes. [security.md_chunk_2]",
+      "citations": [
+        {
+          "chunk_id": "security.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states the default session inactivity timeout is 30 minutes and valid values are between 15 and 120 minutes, which directly supports the claim."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9998,
+      "citation_chunks": [
+        "security.md_chunk_2"
+      ]
+    },
+    {
+      "id": "MD-02",
+      "question": "When I upload a file that is too large, what error do I get and what is the default size limit?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "troubleshooting.md_chunk_5",
+        "file-storage.md_chunk_3"
+      ],
+      "generated_answer": "The default maximum upload size is 10 GB per file. If you upload a file larger than that limit, the upload fails with error ACM-409.\n[file-storage.md_chunk_3]",
+      "citations": [
+        {
+          "chunk_id": "file-storage.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states the default maximum upload size is 10 GB per file and that larger uploads fail with error ACM-409."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9992,
+      "citation_chunks": [
+        "file-storage.md_chunk_3"
+      ]
+    },
+    {
+      "id": "MD-03",
+      "question": "How does interactive sign-in work, and how is that different from how the API authenticates?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "authentication.md_chunk_1",
+        "api.md_chunk_2"
+      ],
+      "generated_answer": "Interactive sign-in works by going to the sign-in page, entering your email and password, and if MFA is enabled, entering the six-digit code from your authenticator app. After successful sign-in, AcmeCloud issues a session token that identifies the user for the duration of the session.\n[authentication.md_chunk_2]\n[authentication.md_chunk_1]\n\nThe API authenticates differently: it accepts API keys sent as a Bearer token for server-to-server and long-running automation, or session tokens obtained by exchanging user credentials via POST /v1/auth/token. Session tokens are separate from API keys.\n[api.md_chunk_2]\n[authentication.md_chunk_1]",
+      "citations": [
+        {
+          "chunk_id": "authentication.md_chunk_2",
+          "valid": true,
+          "supported": false,
+          "explanation": "The evidence describes the sign-in steps but does not mention AcmeCloud issuing a session token."
+        },
+        {
+          "chunk_id": "authentication.md_chunk_1",
+          "valid": true,
+          "supported": false,
+          "explanation": "The evidence confirms email/password sign-in and session token issuance but does not mention MFA or a six-digit authenticator code, so that part of the claim is unsupported."
+        },
+        {
+          "chunk_id": "api.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states the API accepts API keys as Bearer tokens for server-to-server and long-running automation, and session tokens obtained via POST /v1/auth/token, and that they are distinct."
+        },
+        {
+          "chunk_id": "authentication.md_chunk_1",
+          "valid": true,
+          "supported": false,
+          "explanation": "The evidence only states that session tokens are separate from API keys and refers to api.md for programmatic access, but it does not describe API keys as Bearer tokens or mention POST /v1/auth/token."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 0.25,
+      "unsupported_citations": 3,
+      "confidence": 0.7577,
+      "citation_chunks": [
+        "authentication.md_chunk_2",
+        "authentication.md_chunk_1",
+        "api.md_chunk_2",
+        "authentication.md_chunk_1"
+      ]
+    },
+    {
+      "id": "MD-04",
+      "question": "If I forgot my password, can I reset it myself, and how does that differ from an administrator reset?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "account-recovery.md_chunk_2",
+        "password-policy.md_chunk_6"
+      ],
+      "generated_answer": "Yes. You can reset your password yourself through the \u201cForgot Password\u201d flow if you can access your account email. You enter your email address, receive a reset link valid for 30 minutes, and set a new password. [account-recovery.md_chunk_2]\n\nSelf-service reset requires access to the account email. An administrator reset does not require that access and instead issues a temporary password. Administrators also cannot view or recover your MFA codes, only reset MFA. [account-recovery.md_chunk_5]\n\nIf you cannot access your account email, you cannot use self-service password reset. In that case, you must contact an administrator, who verifies your identity out of band and initiates recovery from the Admin Console, giving you a temporary password that must be changed at the next sign-in. [account-recovery.md_chunk_3]",
+      "citations": [
+        {
+          "chunk_id": "account-recovery.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence provides the exact Forgot Password flow steps, including entering account email, receiving a reset link valid for 30 minutes, and setting a new password, which matches the claim."
+        },
+        {
+          "chunk_id": "account-recovery.md_chunk_5",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that self-service reset requires account email access, administrator reset does not and issues a temporary password, and administrators cannot recover/view MFA codes but can only reset MFA."
+        },
+        {
+          "chunk_id": "account-recovery.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly matches the claim, specifying that lost email access prevents self-service password reset and requires administrator identity verification and recovery via Admin Console with a temporary password."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9991,
+      "citation_chunks": [
+        "account-recovery.md_chunk_2",
+        "account-recovery.md_chunk_5",
+        "account-recovery.md_chunk_3"
+      ]
+    },
+    {
+      "id": "MD-05",
+      "question": "How much storage does the Free plan include, and what happens to uploads when an organization reaches its quota?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "billing.md_chunk_2",
+        "file-storage.md_chunk_4"
+      ],
+      "generated_answer": "The Free plan includes 5 GB of storage. [file-storage.md_chunk_4]\n\nWhen an organization reaches its storage quota, uploads are blocked until files are deleted or the plan is upgraded. [file-storage.md_chunk_4]",
+      "citations": [
+        {
+          "chunk_id": "file-storage.md_chunk_4",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states 'Free \u2014 5 GB', directly supporting the claim."
+        },
+        {
+          "chunk_id": "file-storage.md_chunk_4",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that when the quota is reached, uploads are blocked until files are deleted or the plan is upgraded."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9993,
+      "citation_chunks": [
+        "file-storage.md_chunk_4",
+        "file-storage.md_chunk_4"
+      ]
+    },
+    {
+      "id": "MD-06",
+      "question": "If I delete a project, can I recover its files, and for how long?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "projects.md_chunk_6",
+        "file-storage.md_chunk_6"
+      ],
+      "generated_answer": "Yes, if you delete a project, its files are moved to Trash and can be recovered for 30 days, after which they are permanently removed.\n[projects.md_chunk_6]",
+      "citations": [
+        {
+          "chunk_id": "projects.md_chunk_6",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states that deleting a project moves its files to Trash for 30 days, after which they are permanently removed, which directly supports the claim."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9997,
+      "citation_chunks": [
+        "projects.md_chunk_6"
+      ]
+    },
+    {
+      "id": "MD-07",
+      "question": "How does a user enable MFA, and can the organization require it for everyone?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "mfa.md_chunk_2",
+        "security.md_chunk_3"
+      ],
+      "generated_answer": "To enable MFA, a user signs in, opens Account Settings, selects Security, then Multi-Factor Authentication, selects Enroll, scans the QR code with an authenticator app, enters the six-digit code to confirm, and saves their backup codes. [mfa.md_chunk_2]\n\nYes, an organization can require MFA for all users by enabling the `require_mfa` setting. When enabled, users who have not enrolled MFA must do so within a 14-day grace period, after which they cannot sign in until MFA is enrolled. [mfa.md_chunk_6]",
+      "citations": [
+        {
+          "chunk_id": "mfa.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly lists the same steps as the claim, including signing in, opening Account Settings, selecting Security then Multi-Factor Authentication, enrolling, scanning the QR code, entering the six-digit code, and saving backup codes."
+        },
+        {
+          "chunk_id": "mfa.md_chunk_6",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that organizations can require MFA by enabling the require_mfa setting, with a 14-day grace period for enrollment and sign-in blocked until MFA is enrolled."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9998,
+      "citation_chunks": [
+        "mfa.md_chunk_2",
+        "mfa.md_chunk_6"
+      ]
+    },
+    {
+      "id": "MD-08",
+      "question": "What does error ACM-429 mean, and what is the standard rate limit that was exceeded?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "troubleshooting.md_chunk_6",
+        "api.md_chunk_7"
+      ],
+      "generated_answer": "ACM-429 means the API rate limit has been exceeded. The standard/default rate limit is 1,000 requests per minute per API key. When this limit is exceeded, you should wait for the interval in the `Retry-After` header and retry, or request a higher limit (Enterprise).\n[troubleshooting.md_chunk_6]",
+      "citations": [
+        {
+          "chunk_id": "troubleshooting.md_chunk_6",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states ACM-429 means the rate limit was exceeded, the default limit is 1,000 requests per minute per API key, and to wait for Retry-After or request a higher (Enterprise) limit."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9999,
+      "citation_chunks": [
+        "troubleshooting.md_chunk_6"
+      ]
+    },
+    {
+      "id": "MD-09",
+      "question": "After requesting a password reset, how long is the link valid, and what rules must the new password meet?",
+      "expected_answerable": true,
+      "actual_answerable": false,
+      "expected_chunks": [
+        "account-recovery.md_chunk_2",
+        "password-policy.md_chunk_2"
+      ],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "MD-10",
+      "question": "Can I share a file with someone who has no AcmeCloud account, and what is required to give someone direct project access instead?",
+      "expected_answerable": true,
+      "actual_answerable": false,
+      "expected_chunks": [
+        "file-sharing.md_chunk_2",
+        "access-control.md_chunk_4"
+      ],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "AM-01",
+      "question": "How do I reset it?",
+      "expected_answerable": true,
+      "actual_answerable": false,
+      "expected_chunks": [
+        "account-recovery.md_chunk_2"
+      ],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "AM-02",
+      "question": "What are the requirements?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "password-policy.md_chunk_2"
+      ],
+      "generated_answer": "Based on the documentation, the following requirements are described:\n\n**Password requirements:**\n- At least 12 characters long.\n- At least one uppercase letter (A\u2013Z).\n- At least one lowercase letter (a\u2013z).\n- At least one number (0\u20139).\n- At least one special character (for example !, @, #, or %).\n[password-policy.md_chunk_2]\n\nThese apply to all AcmeCloud user accounts and cannot be opted out of.\n[password-policy.md_chunk_1]\n\n**MFA requirement (if enabled):**\nOrganizations can require multi-factor authentication for all users using the `require_mfa` setting. When enabled, users must enroll within a 14-day grace period, after which sign-in is blocked until MFA is enrolled.\n[security.md_chunk_3]",
+      "citations": [
+        {
+          "chunk_id": "password-policy.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly lists all the stated password requirements, including length, uppercase, lowercase, number, and special character."
+        },
+        {
+          "chunk_id": "password-policy.md_chunk_1",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence explicitly states that the password requirements apply to all AcmeCloud user accounts and that individual users cannot opt out."
+        },
+        {
+          "chunk_id": "security.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that require_mfa requires MFA for all users, grants a 14-day grace period to unenrolled users, and blocks sign-in after the grace period until enrollment."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9734,
+      "citation_chunks": [
+        "password-policy.md_chunk_2",
+        "password-policy.md_chunk_1",
+        "security.md_chunk_3"
+      ]
+    },
+    {
+      "id": "AM-03",
+      "question": "Where can I change this?",
+      "expected_answerable": true,
+      "actual_answerable": false,
+      "expected_chunks": [
+        "password-policy.md_chunk_5"
+      ],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "AM-04",
+      "question": "What plan do I need?",
+      "expected_answerable": true,
+      "actual_answerable": false,
+      "expected_chunks": [
+        "billing.md_chunk_2"
+      ],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "AM-05",
+      "question": "I'm locked out. What now?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "authentication.md_chunk_6"
+      ],
+      "generated_answer": "After 5 consecutive failed sign-in attempts, your account is locked for 15 minutes. The lock clears automatically, and an administrator can unlock it immediately from the Admin Console under Users.\n[account-recovery.md_chunk_4]\n\nDuring the lockout, sign-in is blocked even with the correct password.\n[authentication.md_chunk_6]\n\nWait for the lockout to expire or ask an administrator to unlock the account. If you forgot your password, use the Forgot Password flow described in account-recovery.md.\n[authentication.md_chunk_7]",
+      "citations": [
+        {
+          "chunk_id": "account-recovery.md_chunk_4",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly matches the claim, stating the same lockout conditions and admin unlock method."
+        },
+        {
+          "chunk_id": "authentication.md_chunk_6",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence explicitly states that during the lockout, sign-in is blocked even with the correct password."
+        },
+        {
+          "chunk_id": "authentication.md_chunk_7",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states both directives in the claim: wait for lockout to expire or ask an administrator to unlock, and use the Forgot Password flow for forgotten passwords."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.6113,
+      "citation_chunks": [
+        "account-recovery.md_chunk_4",
+        "authentication.md_chunk_6",
+        "authentication.md_chunk_7"
+      ]
+    },
+    {
+      "id": "EK-01",
+      "question": "What does error ACM-429 mean?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "troubleshooting.md_chunk_6"
+      ],
+      "generated_answer": "Error ACM-429 means the API rate limit has been exceeded. The default limit is 1,000 requests per minute per API key. You should wait for the interval indicated in the `Retry-After` header and retry, or request a higher limit (Enterprise).\n[troubleshooting.md_chunk_6]",
+      "citations": [
+        {
+          "chunk_id": "troubleshooting.md_chunk_6",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly confirms the claim about ACM-429, the default rate limit, and the recommended actions."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9998,
+      "citation_chunks": [
+        "troubleshooting.md_chunk_6"
+      ]
+    },
+    {
+      "id": "EK-02",
+      "question": "How do I exchange credentials for a token with POST /v1/auth/token?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "api.md_chunk_3"
+      ],
+      "generated_answer": "To exchange credentials for a token, send a `POST` request to `/v1/auth/token` with a JSON body containing the user\u2019s email and password:\n\n```json\n{\n  \"email\": \"user@example.com\",\n  \"password\": \"your-password\"\n}\n```\n\nUse the `Content-Type: application/json` header. The response contains an access token that remains valid until the session inactivity timeout is reached.\n[api.md_chunk_3]",
+      "citations": [
+        {
+          "chunk_id": "api.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence explicitly shows the Content-Type: application/json header and states that the response contains an access token valid until the session inactivity timeout is reached."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.998,
+      "citation_chunks": [
+        "api.md_chunk_3"
+      ]
+    },
+    {
+      "id": "EK-03",
+      "question": "What is the default value of max_file_size?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "file-storage.md_chunk_3"
+      ],
+      "generated_answer": "The default value of `max_file_size` is 10 GB.\n[security.md_chunk_4]",
+      "citations": [
+        {
+          "chunk_id": "security.md_chunk_4",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that the default is 10 GB."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9999,
+      "citation_chunks": [
+        "security.md_chunk_4"
+      ]
+    },
+    {
+      "id": "EK-04",
+      "question": "What does the require_mfa setting do?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "mfa.md_chunk_6"
+      ],
+      "generated_answer": "The require_mfa setting requires multi-factor authentication for all users. When enabled, unenrolled users have a 14-day grace period to enroll before sign-in is blocked.\n[security.md_chunk_3]",
+      "citations": [
+        {
+          "chunk_id": "security.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states the require_mfa setting requires multi-factor authentication for all users and grants a 14-day grace period before blocking sign-in for unenrolled users."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9998,
+      "citation_chunks": [
+        "security.md_chunk_3"
+      ]
+    },
+    {
+      "id": "EK-05",
+      "question": "What is the default and valid range for api_key_expiry?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "security.md_chunk_5"
+      ],
+      "generated_answer": "The default for `api_key_expiry` is 90 days, and valid values are between 30 and 180 days. [security.md_chunk_5]",
+      "citations": [
+        {
+          "chunk_id": "security.md_chunk_5",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states the default is 90 days and valid values are between 30 and 180 days, directly supporting the claim."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9999,
+      "citation_chunks": [
+        "security.md_chunk_5"
+      ]
+    },
+    {
+      "id": "OD-01",
+      "question": "How long are API keys valid before they expire?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "api.md_chunk_5",
+        "security.md_chunk_5"
+      ],
+      "generated_answer": "API keys expire after 90 days by default; administrators can configure the expiration period to any value between 30 and 180 days.\n[api.md_chunk_5]",
+      "citations": [
+        {
+          "chunk_id": "api.md_chunk_5",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that API keys expire after 90 days by default and administrators can configure the expiration period to any value between 30 and 180 days."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 1.0,
+      "citation_chunks": [
+        "api.md_chunk_5"
+      ]
+    },
+    {
+      "id": "OD-02",
+      "question": "What is the minimum password length?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "password-policy.md_chunk_2"
+      ],
+      "generated_answer": "The minimum password length is 12 characters.\n[password-policy.md_chunk_2]",
+      "citations": [
+        {
+          "chunk_id": "password-policy.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states all passwords must be at least 12 characters long, which directly supports the claim."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9988,
+      "citation_chunks": [
+        "password-policy.md_chunk_2"
+      ]
+    },
+    {
+      "id": "OD-03",
+      "question": "What is the maximum file upload size?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "file-storage.md_chunk_3",
+        "security.md_chunk_4"
+      ],
+      "generated_answer": "The maximum file upload size is 10 GB per file by default.\n[file-storage.md_chunk_3]\n\nAdministrators can change this limit to any value between 1 GB and 50 GB using the `max_file_size` setting.\n[file-storage.md_chunk_3]",
+      "citations": [
+        {
+          "chunk_id": "file-storage.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states that the maximum upload size is 10 GB per file by default."
+        },
+        {
+          "chunk_id": "file-storage.md_chunk_3",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states administrators can change the maximum upload size to any value between 1 GB and 50 GB using the max_file_size setting, matching the claim."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 1.0,
+      "citation_chunks": [
+        "file-storage.md_chunk_3",
+        "file-storage.md_chunk_3"
+      ]
+    },
+    {
+      "id": "OD-04",
+      "question": "My administrator insists passwords only need 8 characters. Is that still correct?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "password-policy.md_chunk_2",
+        "release-notes.md_chunk_4"
+      ],
+      "generated_answer": "No, that is no longer correct. Current password policy requires all passwords to be at least 12 characters long and include uppercase, lowercase, number, and special character.\n[password-policy.md_chunk_2]\n\nThe minimum length and complexity rules are fixed and cannot be lowered by administrators.\n[password-policy.md_chunk_7]\n\nThe 8-character minimum was the previous policy; Version 3.1 increased it to 12.\n[release-notes.md_chunk_4]",
+      "citations": [
+        {
+          "chunk_id": "password-policy.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states all passwords must be at least 12 characters long and contain uppercase, lowercase, number, and special character, directly matching the claim."
+        },
+        {
+          "chunk_id": "password-policy.md_chunk_7",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence explicitly states that minimum length and complexity rules are fixed and cannot be lowered."
+        },
+        {
+          "chunk_id": "release-notes.md_chunk_4",
+          "valid": true,
+          "supported": true,
+          "explanation": "Evidence states Version 3.1 increased minimum password length from 8 to 12 characters, directly supporting the claim."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.8115,
+      "citation_chunks": [
+        "password-policy.md_chunk_2",
+        "password-policy.md_chunk_7",
+        "release-notes.md_chunk_4"
+      ]
+    },
+    {
+      "id": "OD-05",
+      "question": "API keys used to expire after a fixed 90 days. When did that change, and who can now configure the expiry?",
+      "expected_answerable": true,
+      "actual_answerable": true,
+      "expected_chunks": [
+        "release-notes.md_chunk_2",
+        "security.md_chunk_5"
+      ],
+      "generated_answer": "API keys changed from a fixed 90-day expiration in version 3.3, released on 2026-07-15.\n[release-notes.md_chunk_2]\n\nAdministrators can now configure the expiration period using the `api_key_expiry` setting, with valid values between 30 and 180 days.\n[api.md_chunk_5]",
+      "citations": [
+        {
+          "chunk_id": "release-notes.md_chunk_2",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence states that in version 3.3 (released on 2026-07-15), API keys changed from a fixed 90-day expiration to configurable expiration."
+        },
+        {
+          "chunk_id": "api.md_chunk_5",
+          "valid": true,
+          "supported": true,
+          "explanation": "The evidence directly states that administrators can configure the expiration period to any value between 30 and 180 days using the api_key_expiry setting."
+        }
+      ],
+      "citation_validity_rate": 1.0,
+      "citation_support_rate": 1.0,
+      "unsupported_citations": 0,
+      "confidence": 0.9998,
+      "citation_chunks": [
+        "release-notes.md_chunk_2",
+        "api.md_chunk_5"
+      ]
+    },
+    {
+      "id": "NA-01",
+      "question": "Does AcmeCloud have a mobile app, and which devices does it support?",
+      "expected_answerable": false,
+      "actual_answerable": false,
+      "expected_chunks": [],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "NA-02",
+      "question": "Where are AcmeCloud's data centers located?",
+      "expected_answerable": false,
+      "actual_answerable": false,
+      "expected_chunks": [],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "NA-03",
+      "question": "Is AcmeCloud SOC 2 or ISO 27001 certified?",
+      "expected_answerable": false,
+      "actual_answerable": false,
+      "expected_chunks": [],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "NA-04",
+      "question": "How much does the Enterprise plan cost per user?",
+      "expected_answerable": false,
+      "actual_answerable": false,
+      "expected_chunks": [],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "NA-05",
+      "question": "What are the available permission scopes for an API key?",
+      "expected_answerable": false,
+      "actual_answerable": false,
+      "expected_chunks": [],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "NA-06",
+      "question": "Does AcmeCloud support SMS as a second factor for MFA?",
+      "expected_answerable": false,
+      "actual_answerable": false,
+      "expected_chunks": [],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "NA-07",
+      "question": "What is AcmeCloud's uptime SLA?",
+      "expected_answerable": false,
+      "actual_answerable": false,
+      "expected_chunks": [],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "NA-08",
+      "question": "Can I connect AcmeCloud to Slack for notifications?",
+      "expected_answerable": false,
+      "actual_answerable": false,
+      "expected_chunks": [],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "NA-09",
+      "question": "What is the recovery time objective (RTO) for AcmeCloud backups?",
+      "expected_answerable": false,
+      "actual_answerable": false,
+      "expected_chunks": [],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    },
+    {
+      "id": "NA-10",
+      "question": "How do I change the email address on my account?",
+      "expected_answerable": false,
+      "actual_answerable": false,
+      "expected_chunks": [],
+      "generated_answer": "I couldn't find enough information in the available documentation to verify an answer to this question.",
+      "citations": [],
+      "citation_validity_rate": 0.0,
+      "citation_support_rate": 0.0,
+      "unsupported_citations": 0,
+      "confidence": 0.0,
+      "citation_chunks": []
+    }
+  ]
+}

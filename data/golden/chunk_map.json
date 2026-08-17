@@ -1,0 +1,142 @@
+{
+  "scheme": "filename.md_chunk_N, where N is the 1-indexed position of each '## ' section within the file (heading-based chunking, one chunk per section).",
+  "total_chunks": 106,
+  "documents": {
+    "authentication.md": [
+      {"chunk_id": "authentication.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "authentication.md_chunk_2", "heading": "Signing In"},
+      {"chunk_id": "authentication.md_chunk_3", "heading": "Session Timeout"},
+      {"chunk_id": "authentication.md_chunk_4", "heading": "Signing Out"},
+      {"chunk_id": "authentication.md_chunk_5", "heading": "Single Sign-On (SSO)"},
+      {"chunk_id": "authentication.md_chunk_6", "heading": "Account Lockout"},
+      {"chunk_id": "authentication.md_chunk_7", "heading": "Troubleshooting Sign-In"}
+    ],
+    "password-policy.md": [
+      {"chunk_id": "password-policy.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "password-policy.md_chunk_2", "heading": "Password Requirements"},
+      {"chunk_id": "password-policy.md_chunk_3", "heading": "Password Expiration"},
+      {"chunk_id": "password-policy.md_chunk_4", "heading": "Password History"},
+      {"chunk_id": "password-policy.md_chunk_5", "heading": "Changing Your Password"},
+      {"chunk_id": "password-policy.md_chunk_6", "heading": "Admin Password Management"},
+      {"chunk_id": "password-policy.md_chunk_7", "heading": "Policy Configuration"}
+    ],
+    "mfa.md": [
+      {"chunk_id": "mfa.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "mfa.md_chunk_2", "heading": "Enabling MFA"},
+      {"chunk_id": "mfa.md_chunk_3", "heading": "Disabling MFA"},
+      {"chunk_id": "mfa.md_chunk_4", "heading": "Backup Codes"},
+      {"chunk_id": "mfa.md_chunk_5", "heading": "Lost MFA Device"},
+      {"chunk_id": "mfa.md_chunk_6", "heading": "MFA Enforcement (require_mfa)"},
+      {"chunk_id": "mfa.md_chunk_7", "heading": "MFA Troubleshooting"}
+    ],
+    "account-recovery.md": [
+      {"chunk_id": "account-recovery.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "account-recovery.md_chunk_2", "heading": "Password Reset (Forgot Password)"},
+      {"chunk_id": "account-recovery.md_chunk_3", "heading": "Account Recovery (Lost Email Access)"},
+      {"chunk_id": "account-recovery.md_chunk_4", "heading": "Locked Accounts"},
+      {"chunk_id": "account-recovery.md_chunk_5", "heading": "Admin Reset vs Self-Service Reset"},
+      {"chunk_id": "account-recovery.md_chunk_6", "heading": "Frequently Asked Questions"}
+    ],
+    "user-management.md": [
+      {"chunk_id": "user-management.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "user-management.md_chunk_2", "heading": "Inviting Users"},
+      {"chunk_id": "user-management.md_chunk_3", "heading": "User Roles"},
+      {"chunk_id": "user-management.md_chunk_4", "heading": "Disabling vs Deleting Users"},
+      {"chunk_id": "user-management.md_chunk_5", "heading": "Resetting a User's Password"},
+      {"chunk_id": "user-management.md_chunk_6", "heading": "User Status"},
+      {"chunk_id": "user-management.md_chunk_7", "heading": "Bulk Operations"}
+    ],
+    "access-control.md": [
+      {"chunk_id": "access-control.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "access-control.md_chunk_2", "heading": "Authentication vs Authorization"},
+      {"chunk_id": "access-control.md_chunk_3", "heading": "Organization Roles"},
+      {"chunk_id": "access-control.md_chunk_4", "heading": "Project Membership vs Organization Membership"},
+      {"chunk_id": "access-control.md_chunk_5", "heading": "File Owner vs File Editor"},
+      {"chunk_id": "access-control.md_chunk_6", "heading": "Project Roles"},
+      {"chunk_id": "access-control.md_chunk_7", "heading": "Changing Permissions"}
+    ],
+    "projects.md": [
+      {"chunk_id": "projects.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "projects.md_chunk_2", "heading": "Creating a Project"},
+      {"chunk_id": "projects.md_chunk_3", "heading": "Project Membership"},
+      {"chunk_id": "projects.md_chunk_4", "heading": "Project Roles"},
+      {"chunk_id": "projects.md_chunk_5", "heading": "Project Storage Limits"},
+      {"chunk_id": "projects.md_chunk_6", "heading": "Archiving and Deleting Projects"}
+    ],
+    "file-storage.md": [
+      {"chunk_id": "file-storage.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "file-storage.md_chunk_2", "heading": "Uploading Files"},
+      {"chunk_id": "file-storage.md_chunk_3", "heading": "File Size Limits"},
+      {"chunk_id": "file-storage.md_chunk_4", "heading": "Storage Quotas"},
+      {"chunk_id": "file-storage.md_chunk_5", "heading": "File Versions"},
+      {"chunk_id": "file-storage.md_chunk_6", "heading": "File Retention (Trash)"},
+      {"chunk_id": "file-storage.md_chunk_7", "heading": "Supported File Types"}
+    ],
+    "file-sharing.md": [
+      {"chunk_id": "file-sharing.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "file-sharing.md_chunk_2", "heading": "Creating a Share Link"},
+      {"chunk_id": "file-sharing.md_chunk_3", "heading": "Link Permissions"},
+      {"chunk_id": "file-sharing.md_chunk_4", "heading": "Link Expiration"},
+      {"chunk_id": "file-sharing.md_chunk_5", "heading": "Link Passwords"},
+      {"chunk_id": "file-sharing.md_chunk_6", "heading": "Expired Links"},
+      {"chunk_id": "file-sharing.md_chunk_7", "heading": "Share Link vs Direct Access"}
+    ],
+    "api.md": [
+      {"chunk_id": "api.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "api.md_chunk_2", "heading": "Authentication"},
+      {"chunk_id": "api.md_chunk_3", "heading": "Obtaining a Session Token"},
+      {"chunk_id": "api.md_chunk_4", "heading": "API Key Management"},
+      {"chunk_id": "api.md_chunk_5", "heading": "API Key Expiration"},
+      {"chunk_id": "api.md_chunk_6", "heading": "Endpoints"},
+      {"chunk_id": "api.md_chunk_7", "heading": "Rate Limits"},
+      {"chunk_id": "api.md_chunk_8", "heading": "Error Codes"},
+      {"chunk_id": "api.md_chunk_9", "heading": "Best Practices"}
+    ],
+    "billing.md": [
+      {"chunk_id": "billing.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "billing.md_chunk_2", "heading": "Plans"},
+      {"chunk_id": "billing.md_chunk_3", "heading": "Invoices"},
+      {"chunk_id": "billing.md_chunk_4", "heading": "Billing Owner"},
+      {"chunk_id": "billing.md_chunk_5", "heading": "Changing Plans"},
+      {"chunk_id": "billing.md_chunk_6", "heading": "Payment Methods"},
+      {"chunk_id": "billing.md_chunk_7", "heading": "Billing FAQ"}
+    ],
+    "notifications.md": [
+      {"chunk_id": "notifications.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "notifications.md_chunk_2", "heading": "Notification Types"},
+      {"chunk_id": "notifications.md_chunk_3", "heading": "Email Preferences"},
+      {"chunk_id": "notifications.md_chunk_4", "heading": "Digest Settings"},
+      {"chunk_id": "notifications.md_chunk_5", "heading": "Security Alerts vs Notification Emails"},
+      {"chunk_id": "notifications.md_chunk_6", "heading": "Muting Notifications"}
+    ],
+    "troubleshooting.md": [
+      {"chunk_id": "troubleshooting.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "troubleshooting.md_chunk_2", "heading": "ACM-401 — Authentication Failed"},
+      {"chunk_id": "troubleshooting.md_chunk_3", "heading": "ACM-403 — Forbidden"},
+      {"chunk_id": "troubleshooting.md_chunk_4", "heading": "ACM-404 — Not Found"},
+      {"chunk_id": "troubleshooting.md_chunk_5", "heading": "ACM-409 — Conflict"},
+      {"chunk_id": "troubleshooting.md_chunk_6", "heading": "ACM-429 — Rate Limit Exceeded"},
+      {"chunk_id": "troubleshooting.md_chunk_7", "heading": "ACM-500 — Internal Server Error"},
+      {"chunk_id": "troubleshooting.md_chunk_8", "heading": "Common Login Issues"},
+      {"chunk_id": "troubleshooting.md_chunk_9", "heading": "Upload Failures"}
+    ],
+    "security.md": [
+      {"chunk_id": "security.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "security.md_chunk_2", "heading": "Session Security (session_timeout)"},
+      {"chunk_id": "security.md_chunk_3", "heading": "MFA Enforcement (require_mfa)"},
+      {"chunk_id": "security.md_chunk_4", "heading": "File Size Policy (max_file_size)"},
+      {"chunk_id": "security.md_chunk_5", "heading": "API Key Security (api_key_expiry)"},
+      {"chunk_id": "security.md_chunk_6", "heading": "Data Encryption"},
+      {"chunk_id": "security.md_chunk_7", "heading": "Access Logging"},
+      {"chunk_id": "security.md_chunk_8", "heading": "Security Alerts"}
+    ],
+    "release-notes.md": [
+      {"chunk_id": "release-notes.md_chunk_1", "heading": "Overview"},
+      {"chunk_id": "release-notes.md_chunk_2", "heading": "Version 3.3 — 2026-07-15"},
+      {"chunk_id": "release-notes.md_chunk_3", "heading": "Version 3.2 — 2026-05-20"},
+      {"chunk_id": "release-notes.md_chunk_4", "heading": "Version 3.1 — 2026-02-14"},
+      {"chunk_id": "release-notes.md_chunk_5", "heading": "Version 3.0 — 2025-11-10"},
+      {"chunk_id": "release-notes.md_chunk_6", "heading": "Deprecations"}
+    ]
+  }
+}
