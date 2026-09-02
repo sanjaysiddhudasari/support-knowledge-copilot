@@ -63,7 +63,7 @@ async def upload_document(
 
         indexer = Indexer()
 
-        indexer.index_all_documents(
+        indexer.index_corpus(
             directory=str(RAW_DIR)
         )
 
