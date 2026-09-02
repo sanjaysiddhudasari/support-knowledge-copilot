@@ -201,9 +201,35 @@ Hybrid retrieval produces a broader candidate set. Reranking then focuses the sm
 
 A generated citation is not trustworthy merely because the model produced it. The verifier checks whether the cited retrieved chunk actually supports the claim attached to it.
 
-## Limitations and next improvements
+## Limitations and future improvements
 
-- Conversational query rewriting is not implemented yet; ambiguous questions are evaluated as standalone queries.
-- Citation claim extraction can still be improved for complex list/code formatting.
-- The current corpus is synthetic and intended for engineering evaluation rather than production knowledge.
-- A production deployment should add authentication/authorization, persistent hosted storage, rate limiting, and operational observability.
+### Document ingestion
+
+- Add support for **PDF, DOCX, HTML, and CSV** documents alongside Markdown/TXT.
+- Introduce format-specific parsers that normalize different file types into a common document representation before chunking.
+
+### Incremental indexing
+
+- Replace full-corpus re-indexing on every upload with **incremental indexing** for new, updated, and deleted documents.
+- Generate embeddings only for changed chunks and update the relevant BM25/vector indexes.
+- Use content hashes or document IDs to detect unchanged documents.
+
+### Retrieval and chunking
+
+- Add token-aware secondary splitting for oversized sections and controlled chunk overlap.
+- Add metadata filters for document type, access level, and document freshness.
+- Improve query rewriting for vague or conversational questions.
+
+### Knowledge management
+
+- Add document versioning and latest-version selection.
+- Support document-level access control so users only retrieve authorized content.
+- Add conversational RAG for follow-up questions that depend on previous turns.
+
+### Evaluation and operations
+
+- Expand retrieval and end-to-end evaluation with more real-world test cases and regression tracking.
+- Add observability for retrieval scores, reranker scores, answerability, citation support, latency, and model usage.
+- Add caching and rate limiting to reduce latency and inference cost.
+
+The current corpus is synthetic and intended for engineering evaluation rather than production knowledge. A production deployment should also add authentication/authorization, persistent hosted storage, and operational monitoring.
