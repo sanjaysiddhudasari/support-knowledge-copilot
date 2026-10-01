@@ -368,12 +368,15 @@ class Indexer:
 
             text = self._remove_front_matter(raw_text)
 
+            record = documents[path.name]
+
             chunks = chunk_markdown(
                 text=text,
                 source=path.name,
                 last_updated=metadata["last_updated"],
                 document_type=metadata["document_type"],
                 access_level=metadata["access_level"],
+                version=record["version"],
             )
 
             all_chunks.extend(chunks)
