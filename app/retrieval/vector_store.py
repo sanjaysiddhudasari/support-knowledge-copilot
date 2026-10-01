@@ -65,6 +65,24 @@ class VectorStore:
             points=points,
         )
 
+    def delete_chunks(self, chunk_ids: list[str]) -> None:
+        if not chunk_ids:
+            return
+
+        point_ids = [
+            str(uuid5(NAMESPACE_URL, chunk_id))
+            for chunk_id in chunk_ids
+        ]
+
+        self.client.delete(
+            collection_name=COLLECTION_NAME,
+            points_selector=point_ids,
+        )
+
+        print(
+            f"Deleted {len(point_ids)} chunks from Qdrant."
+        )
+
     def search(
             self,
             query_vector: list[float],

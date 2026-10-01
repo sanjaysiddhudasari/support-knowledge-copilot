@@ -1,6 +1,8 @@
 from pathlib import Path
 from datetime import date
 import re
+import hashlib
+import json
 
 from app.ingestion.chunker import chunk_markdown
 from app.ingestion.loader import load_document
@@ -10,14 +12,25 @@ from app.retrieval.bm25 import BM25Retriever
 
 
 BM25_INDEX_PATH = "data/bm25/index.joblib"
+MANIFEST_PATH = Path("data/index/manifest.json")
 
 
 class Indexer:
 
-    def __init__(self):
+    def __init__(self,manifest_path=MANIFEST_PATH):
+
+        self.manifest_path=Path(manifest_path)
+        
         self.embedding_service = EmbeddingService()
         self.vector_store = VectorStore()
         self.bm25_retriever = BM25Retriever()
+
+    def _load_manifest(self):
+        if not self.manifest_path.exists():
+            return {"documents": {}}
+
+        with open(self.manifest_path, "r", encoding="utf-8") as f:
+            return json.load(f)
 
     def _parse_metadata(self, text: str) -> dict:
 
@@ -195,3 +208,77 @@ class Indexer:
             f"Indexed {len(all_chunks)} chunks "
             f"into Qdrant."
         )
+
+        # --------------------------------------------------
+        # Save indexing manifest
+        # --------------------------------------------------
+
+        manifest = {
+            "documents": {}
+        }
+
+        for path in documents:
+            manifest["documents"][path.name] = {
+                "content_hash": self._calculate_hash(path),
+            }
+
+        self._save_manifest(manifest)
+
+        print(
+            f"Saved manifest: "
+            f"{self.manifest_path}"
+        )
+
+
+    def _calculate_hash(self,path:Path)-> str:
+        content=path.read_bytes()
+        return hashlib.sha256(content).hexdigest()
+
+    def _get_changes(self,directory:Path):
+
+        manifest=self._load_manifest()
+        documents=manifest.get("documents",{})
+
+        current_files={
+            path.name:path
+            for path in directory.glob('*.md')
+        }
+
+
+        new_files=[]
+        modified_files=[]
+        deleted_files=[]
+        unchanged_files=[]
+
+        for filename,path in current_files.items():
+            current_hash=self._calculate_hash(path=path)
+
+            old_record=documents.get(filename)
+
+            if old_record is None:
+                new_files.append(path)
+
+            elif old_record['content_hash']==current_hash:
+                unchanged_files.append(path)
+
+            else:
+                modified_files.append(path)
+
+
+        for filename in documents:
+            if filename not in current_files:
+                deleted_files.append(filename)
+
+        return {
+            "new":new_files,
+            "modified":modified_files,
+            "unchanged":unchanged_files,
+            "deleted":deleted_files
+        }
+
+
+    def _save_manifest(self,manifest):
+        self.manifest_path.parent.mkdir(parents=True,exist_ok=True)
+
+        with open(self.manifest_path,"w",encoding='utf-8') as f:
+            json.dump(manifest,f,indent=2)
