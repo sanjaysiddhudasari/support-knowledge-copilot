@@ -132,6 +132,7 @@ class Indexer:
                 last_updated=metadata["last_updated"],
                 document_type=metadata["document_type"],
                 access_level=metadata["access_level"],
+                version=1,
             )
 
             all_chunks.extend(chunks)
@@ -181,6 +182,7 @@ class Indexer:
                 "chunk_ids": [
                     chunk.chunk_ids for chunk in all_chunks if chunk.source == path.name
                 ],
+                "version":1,
             }
 
         self._save_manifest(manifest)
@@ -296,13 +298,14 @@ class Indexer:
         all_new_chunks = []
 
         for path in files_to_index:
-
             source = path.name
+
+            old_record = documents.get(source, {})
+            old_version = old_record.get("version", 0)
 
             raw_text = load_document(str(path))
 
             metadata = self._parse_metadata(raw_text)
-
             text = self._remove_front_matter(raw_text)
 
             chunks = chunk_markdown(
@@ -311,16 +314,24 @@ class Indexer:
                 last_updated=metadata["last_updated"],
                 document_type=metadata["document_type"],
                 access_level=metadata["access_level"],
+                version=old_version+1,
             )
 
             all_new_chunks.extend(chunks)
 
             documents[source] = {
                 "content_hash": self._calculate_hash(path),
-                "chunk_ids": [chunk.chunk_ids for chunk in chunks],
+                "chunk_ids": [
+                    chunk.chunk_ids
+                    for chunk in chunks
+                ],
+                "version": old_version + 1,
             }
 
-            print(f"{source}: " f"{len(chunks)} chunks")
+            print(
+                f"{source}: {len(chunks)} chunks "
+                f"(version {old_version + 1})"
+            )
 
         # --------------------------------------------------
         # 4. Embed only new/modified chunks

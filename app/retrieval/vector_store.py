@@ -1,6 +1,8 @@
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
+    ExtendedPointId,
+    PointIdsList,
     PointStruct,
     VectorParams,
 )
@@ -55,6 +57,7 @@ class VectorStore:
                     "last_updated": str(chunk.last_updated),
                     "document_type": chunk.document_type,
                     "access_level": chunk.access_level,
+                    "version": getattr(chunk, "version", 1),
                 },
             )
 
@@ -69,14 +72,14 @@ class VectorStore:
         if not chunk_ids:
             return
 
-        point_ids = [
-            str(uuid5(NAMESPACE_URL, chunk_id))
+        point_ids: list[ExtendedPointId] = [
+            uuid5(NAMESPACE_URL, chunk_id)
             for chunk_id in chunk_ids
         ]
 
         self.client.delete(
             collection_name=COLLECTION_NAME,
-            points_selector=point_ids,
+            points_selector=PointIdsList(points=point_ids),
         )
 
         print(

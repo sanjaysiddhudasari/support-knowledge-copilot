@@ -10,6 +10,7 @@ def chunk_markdown(
     last_updated: date,
     document_type: str,
     access_level: str,
+    version:int=1,
 ) -> list[Chunk]:
 
     lines = text.splitlines()
@@ -39,8 +40,9 @@ def chunk_markdown(
                 last_updated=last_updated,
                 document_type=document_type,
                 access_level=access_level,
+                version=version,
             )
-        )
+        )   
 
         chunk_number += 1
 
