@@ -1,4 +1,4 @@
-from app.retrieval.retrieval_service import RetrievalService
+from app.services.retrieval_service import RetrievalService
 
 
 def main():

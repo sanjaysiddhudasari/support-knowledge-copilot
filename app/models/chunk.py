@@ -12,7 +12,7 @@ class Chunk(BaseModel):
 
     last_updated:date
     document_type:str
-    access_level:str
+    access_level:str="public"
     version: int = 1
 
     

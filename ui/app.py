@@ -3,17 +3,13 @@ import streamlit as st
 import re
 import os
 
-
-
-API_URL = os.getenv(
-    "API_URL",
-    "http://127.0.0.1:8000/api/query",
+API_BASE_URL = os.getenv(
+    "API_BASE_URL",
+    "http://127.0.0.1:8000",
 )
 
-UPLOAD_URL = os.getenv(
-    "UPLOAD_URL",
-    "http://127.0.0.1:8000/api/documents",
-)
+API_URL = f"{API_BASE_URL}/api/query"
+UPLOAD_URL = f"{API_BASE_URL}/api/documents"
 
 
 st.set_page_config(
@@ -21,6 +17,41 @@ st.set_page_config(
     page_icon="🔎",
     layout="wide",
 )
+
+
+def login(email: str, password: str):
+    response = requests.post(
+        API_URL,
+        json={"query": query},
+        headers={"Authorization": f"Bearer {st.session_state.access_token}"},
+        timeout=120,
+    )
+
+    if response.status_code != 200:
+        return None
+
+    return response.json()
+
+
+if "access_token" not in st.session_state:
+    st.title("Support Knowledge Copilot")
+
+    email = st.text_input("Email")
+    password = st.text_input(
+        "Password",
+        type="password",
+    )
+
+    if st.button("Login"):
+        result = login(email, password)
+
+        if result:
+            st.session_state.access_token = result["access_token"]
+            st.rerun()
+        else:
+            st.error("Invalid email or password")
+
+    st.stop()
 
 
 # ==================================================
@@ -31,10 +62,11 @@ with st.sidebar:
 
     st.header("📚 Knowledge Base")
 
-    st.caption(
-        "Upload Markdown documentation "
-        "to add it to the knowledge base."
-    )
+    if st.button("Logout", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+
+    st.caption("Upload Markdown documentation " "to add it to the knowledge base.")
 
     uploaded_file = st.file_uploader(
         "Upload Markdown",
@@ -48,9 +80,7 @@ with st.sidebar:
             use_container_width=True,
         ):
 
-            with st.spinner(
-                "Uploading and indexing..."
-            ):
+            with st.spinner("Uploading and indexing..."):
 
                 try:
 
@@ -62,6 +92,9 @@ with st.sidebar:
                                 uploaded_file.getvalue(),
                                 "text/markdown",
                             )
+                        },
+                        headers={
+                            "Authorization": f"Bearer {st.session_state.access_token}"
                         },
                         timeout=300,
                     )
@@ -77,9 +110,7 @@ with st.sidebar:
 
                 except requests.RequestException as error:
 
-                    st.error(
-                        f"Upload failed: {error}"
-                    )
+                    st.error(f"Upload failed: {error}")
 
 
 # ==================================================
@@ -109,22 +140,16 @@ if "messages" not in st.session_state:
 
 for message in st.session_state.messages:
 
-    with st.chat_message(
-        message["role"]
-    ):
+    with st.chat_message(message["role"]):
 
-        st.markdown(
-            message["content"]
-        )
+        st.markdown(message["content"])
 
 
 # ==================================================
 # Query
 # ==================================================
 
-query = st.chat_input(
-    "Ask a question about AcmeCloud..."
-)
+query = st.chat_input("Ask a question about AcmeCloud...")
 
 
 if query:
@@ -150,17 +175,13 @@ if query:
 
     with st.chat_message("assistant"):
 
-        with st.spinner(
-            "Searching the knowledge base..."
-        ):
+        with st.spinner("Searching the knowledge base..."):
 
             try:
 
                 response = requests.post(
                     API_URL,
-                    json={
-                        "query": query
-                    },
+                    json={"query": query},
                     timeout=120,
                 )
 
@@ -170,9 +191,7 @@ if query:
 
             except requests.RequestException as error:
 
-                st.error(
-                    f"Could not reach the API: {error}"
-                )
+                st.error(f"Could not reach the API: {error}")
 
                 st.stop()
 
@@ -207,9 +226,7 @@ if query:
         # Confidence
         # --------------------------------------------------
 
-        confidence = data.get(
-            "confidence"
-        )
+        confidence = data.get("confidence")
 
         if isinstance(
             confidence,
@@ -223,16 +240,12 @@ if query:
 
         else:
 
-            confidence_value = (
-                confidence or 0
-            )
+            confidence_value = confidence or 0
 
         # Make sure it is numeric
         try:
 
-            confidence_value = float(
-                confidence_value
-            )
+            confidence_value = float(confidence_value)
 
         except (
             TypeError,
@@ -281,9 +294,7 @@ if query:
 
             st.metric(
                 "Answerable",
-                "Yes"
-                if answerability
-                else "No",
+                "Yes" if answerability else "No",
             )
 
         # --------------------------------------------------
@@ -323,11 +334,7 @@ if query:
                     "",
                 )
 
-                icon = (
-                    "✅"
-                    if supported
-                    else "⚠️"
-                )
+                icon = "✅" if supported else "⚠️"
 
                 # Extract filename and chunk number
                 # from IDs such as:
@@ -338,39 +345,23 @@ if query:
 
                 if "_chunk_" in chunk_id:
 
-                    source_name = chunk_id.split(
-                        "_chunk_"
-                    )[0]
-                status = (
-                    "Verified"
-                    if supported
-                    else "Not verified"
-                )   
-                with st.expander(
-                    f"{icon} {source_name} . {status}"
-                ):
+                    source_name = chunk_id.split("_chunk_")[0]
+                status = "Verified" if supported else "Not verified"
+                with st.expander(f"{icon} {source_name} . {status}"):
 
-                    st.caption(
-                        f"Chunk: {chunk_id}"
-                    )
+                    st.caption(f"Chunk: {chunk_id}")
 
                     if claim:
 
-                        st.write(
-                            claim
-                        )
+                        st.write(claim)
 
                     if explanation:
 
-                        st.caption(
-                            explanation
-                        )
+                        st.caption(explanation)
 
         else:
 
-            st.info(
-                "No verified sources were returned."
-            )
+            st.info("No verified sources were returned.")
 
     # --------------------------------------------------
     # Save Assistant Response

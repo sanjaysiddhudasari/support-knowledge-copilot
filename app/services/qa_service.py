@@ -35,12 +35,14 @@ class QAService:
     def answer(
         self,
         query: str,
+        user_access_level:str="public",
     ) -> QAAnswerResult:
 
         results = self.retrieval_service.retrieve(
             query=query,
             top_k=5,
             candidate_k=20,
+            user_access_level=user_access_level,
         )
 
         answerability = (
