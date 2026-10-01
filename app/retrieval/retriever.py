@@ -38,6 +38,7 @@ class DenseRetriever:
                 last_updated=payload["last_updated"],
                 document_type=payload["document_type"],
                 access_level=payload["access_level"],
+                version=payload.get("version",1),
             )
 
             retrieval_results.append(
