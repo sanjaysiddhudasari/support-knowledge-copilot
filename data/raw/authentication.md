@@ -34,5 +34,5 @@ To protect accounts, AcmeCloud locks an account for 15 minutes after 5 consecuti
 
 ## Troubleshooting Sign-In
 - Error ACM-401 ("invalid credentials") usually means the email or password is incorrect, or the session token has expired.
-- If your account is locked, wait for the lockout to expire or ask an administrator to unlock it.
+- If your account is locked, this is changed.
 - If you forgot your password, use the Forgot Password flow described in account-recovery.md.
