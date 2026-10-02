@@ -6,6 +6,8 @@ class Citation(BaseModel):
     claim: str
     supported: bool = False
     explanation: str = ""
+    source: str | None = None
+    page: int | None = None
 
 
 class Answerability(BaseModel):

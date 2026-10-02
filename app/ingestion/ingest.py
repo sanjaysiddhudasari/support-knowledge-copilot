@@ -1,126 +1,50 @@
-from datetime import date
 from pathlib import Path
-import re
 
-from app.ingestion.chunker import chunk_markdown
-from app.ingestion.loader import load_document
+from app.ingestion.chunker import chunk_document
+from app.ingestion.loader import SUPPORTED_EXTENSIONS, load_document
 
 
 RAW_DIR = Path("data/raw")
 
 
-def parse_metadata(text: str) -> dict:
-    """
-    Extract YAML-style front matter from a Markdown document.
-    """
-
-    metadata = {
-        "last_updated": date(2026, 8, 1),
-        "document_type": "guide",
-        "access_level": "internal",
-    }
-
-    if not text.startswith("---"):
-        return metadata
-
-    match = re.match(
-        r"^---\s*\n(.*?)\n---\s*\n",
-        text,
-        re.DOTALL,
-    )
-
-    if not match:
-        return metadata
-
-    front_matter = match.group(1)
-
-    for line in front_matter.splitlines():
-
-        if ":" not in line:
-            continue
-
-        key, value = line.split(":", 1)
-
-        key = key.strip()
-        value = value.strip()
-
-        if key == "last_updated":
-            year, month, day = map(
-                int,
-                value.split("-"),
-            )
-
-            metadata["last_updated"] = date(
-                year,
-                month,
-                day,
-            )
-
-        elif key == "document_type":
-            metadata["document_type"] = value
-
-        elif key == "access_level":
-            metadata["access_level"] = value
-
-    return metadata
-
-
-def remove_front_matter(text: str) -> str:
-    """
-    Remove YAML front matter before Markdown chunking.
-    """
-
-    if not text.startswith("---"):
-        return text
-
-    match = re.match(
-        r"^---\s*\n.*?\n---\s*\n",
-        text,
-        re.DOTALL,
-    )
-
-    if match:
-        return text[match.end():]
-
-    return text
-
-
 def ingest_document(path: Path):
+    """Load and chunk any supported document."""
 
-    source = path.name
+    document = load_document(str(path))
 
-    raw_text = load_document(str(path))
+    return chunk_document(document, version=1)
 
-    metadata = parse_metadata(raw_text)
 
-    text = remove_front_matter(raw_text)
+def discover_documents(directory: Path) -> list[Path]:
+    """Return every supported document in ``directory``, sorted by name."""
 
-    chunks = chunk_markdown(
-        text=text,
-        source=source,
-        last_updated=metadata["last_updated"],
-        document_type=metadata["document_type"],
-        access_level=metadata["access_level"],
+    if not directory.exists():
+        return []
+
+    return sorted(
+        (
+            path
+            for path in directory.iterdir()
+            if path.is_file()
+            and path.suffix.lower() in SUPPORTED_EXTENSIONS
+        ),
+        key=lambda path: path.name,
     )
-
-    return chunks
 
 
 def main():
 
-    documents = sorted(
-        RAW_DIR.glob("*.md")
-    )
+    documents = discover_documents(RAW_DIR)
 
     if not documents:
         raise RuntimeError(
-            "No Markdown documents found in data/raw/"
+            "No supported documents found in data/raw/"
         )
 
     total_chunks = 0
 
     print(
-        f"Found {len(documents)} Markdown documents."
+        f"Found {len(documents)} documents."
     )
 
     for path in documents:
@@ -159,6 +83,16 @@ def main():
             print(
                 f"Access Level: {chunk.access_level}"
             )
+
+            if chunk.file_type is not None:
+                print(
+                    f"File Type: {chunk.file_type}"
+                )
+
+            if chunk.page is not None:
+                print(
+                    f"Page: {chunk.page}"
+                )
 
             print("\nText:")
             print(chunk.text)

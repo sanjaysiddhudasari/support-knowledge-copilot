@@ -4,6 +4,12 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from app.auth.models import User
 from app.auth.dependencies import get_current_user
+from app.ingestion.loader import (
+    SUPPORTED_EXTENSIONS,
+    DocumentLoadError,
+    UnsupportedFormatError,
+    load_document,
+)
 
 router = APIRouter(
     prefix="/api",
@@ -12,6 +18,11 @@ router = APIRouter(
 
 
 RAW_DIR = Path("data/raw")
+
+# 20 MB is generous for text documentation while keeping ingestion bounded.
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
+SUPPORTED_FORMATS_LABEL = "MD, TXT, PDF, DOCX, HTML"
 
 
 @router.post("/documents")
@@ -26,25 +37,49 @@ async def upload_document(
             detail="Admin access required.",
         )
 
-    # Only Markdown for now.
     if not file.filename:
         raise HTTPException(
             status_code=400,
             detail="Filename is required.",
         )
 
-    if not file.filename.lower().endswith(
-        ".md"
-    ):
+    # Prevent path traversal. The stored name is the bare filename only.
+    filename = Path(file.filename).name
+
+    if not filename or filename in {".", ".."}:
         raise HTTPException(
             status_code=400,
-            detail="Only Markdown (.md) files are supported.",
+            detail="Filename is required.",
         )
 
-    # Prevent path traversal.
-    filename = Path(
-        file.filename
-    ).name
+    # Backend-side validation; the UI check is never trusted on its own.
+    extension = Path(filename).suffix.lower()
+
+    if extension not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unsupported file type '{extension or filename}'. "
+                f"Supported formats: {SUPPORTED_FORMATS_LABEL}."
+            ),
+        )
+
+    contents = await file.read()
+
+    if not contents:
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded document is empty.",
+        )
+
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                "The uploaded document exceeds the "
+                f"{MAX_UPLOAD_BYTES // (1024 * 1024)} MB size limit."
+            ),
+        )
 
     RAW_DIR.mkdir(
         parents=True,
@@ -53,17 +88,42 @@ async def upload_document(
 
     destination = RAW_DIR / filename
 
-    contents = await file.read()
-
-    if not contents.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="The uploaded document is empty.",
-        )
-
     destination.write_bytes(
         contents
     )
+
+    # Parse before indexing so malformed or scanned documents are rejected
+    # cleanly instead of poisoning the index (and the file is removed again).
+    try:
+
+        load_document(str(destination))
+
+    except UnsupportedFormatError as error:
+
+        destination.unlink(missing_ok=True)
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        )
+
+    except DocumentLoadError as error:
+
+        destination.unlink(missing_ok=True)
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        )
+
+    except Exception:
+
+        destination.unlink(missing_ok=True)
+
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded document could not be parsed.",
+        )
 
     try:
 
@@ -75,6 +135,7 @@ async def upload_document(
 
     except Exception as error:
 
+        # Surface a useful message without leaking stack traces.
         raise HTTPException(
             status_code=500,
             detail=(

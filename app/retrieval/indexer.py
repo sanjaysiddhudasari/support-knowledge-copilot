@@ -1,12 +1,14 @@
 from pathlib import Path
-from datetime import date
-import re
 import hashlib
 import json
 import os
 
-from app.ingestion.chunker import chunk_markdown
-from app.ingestion.loader import load_document
+from app.ingestion.chunker import chunk_document
+from app.ingestion.loader import (
+    SUPPORTED_EXTENSIONS,
+    get_loader,
+    load_document,
+)
 from app.retrieval.vector_store import VectorStore
 from app.retrieval.bm25 import BM25Retriever
 
@@ -35,78 +37,36 @@ class Indexer:
         with open(self.manifest_path, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    def _parse_metadata(self, text: str) -> dict:
-
-        metadata = {
-            "last_updated": date(2026, 8, 1),
-            "document_type": "guide",
-            "access_level": "internal",
-        }
-
-        if not text.startswith("---"):
-            return metadata
-
-        match = re.match(
-            r"^---\s*\n(.*?)\n---\s*\n",
-            text,
-            re.DOTALL,
-        )
-
-        if not match:
-            return metadata
-
-        front_matter = match.group(1)
-
-        for line in front_matter.splitlines():
-
-            if ":" not in line:
-                continue
-
-            key, value = line.split(":", 1)
-
-            key = key.strip()
-            value = value.strip()
-
-            if key == "last_updated":
-
-                year, month, day = map(
-                    int,
-                    value.split("-"),
-                )
-
-                metadata["last_updated"] = date(
-                    year,
-                    month,
-                    day,
-                )
-
-            elif key == "document_type":
-                metadata["document_type"] = value
-
-            elif key == "access_level":
-                metadata["access_level"] = value
-
-        return metadata
-
-    def _remove_front_matter(self, text: str) -> str:
-
-        if not text.startswith("---"):
-            return text
-
-        match = re.match(
-            r"^---\s*\n.*?\n---\s*\n",
-            text,
-            re.DOTALL,
-        )
-
-        if match:
-            return text[match.end() :]
-
-        return text
-
     def _calculate_hash(self, path: Path) -> str:
         content = path.read_bytes()
         return hashlib.sha256(content).hexdigest()
+
+    def _discover_files(self, directory: Path) -> list[Path]:
+        """Return every supported document in ``directory``, sorted by name.
+
+        This replaces the previous Markdown-only ``glob("*.md")`` discovery.
+        Supported extensions are owned by the ingestion layer.
+        """
+
+        if not directory.exists():
+            return []
+
+        return sorted(
+            (
+                path
+                for path in directory.iterdir()
+                if path.is_file()
+                and path.suffix.lower() in SUPPORTED_EXTENSIONS
+            ),
+            key=lambda path: path.name,
+        )
+
+    def _load_chunks(self, path: Path, version: int) -> list:
+        """Load and chunk a single supported document."""
+
+        document = load_document(str(path))
+
+        return chunk_document(document, version=version)
 
     def _get_changes(self, directory: Path):
 
@@ -115,7 +75,7 @@ class Indexer:
 
         current_files = {
             path.name: path
-            for path in directory.glob("*.md")
+            for path in self._discover_files(directory)
         }
 
         new_files = []
@@ -175,11 +135,11 @@ class Indexer:
 
         directory_path = Path(directory)
 
-        documents = sorted(directory_path.glob("*.md"))
+        documents = self._discover_files(directory_path)
 
         if not documents:
             raise RuntimeError(
-                f"No Markdown documents found in {directory}"
+                f"No supported documents found in {directory}"
             )
 
         all_chunks = []
@@ -191,18 +151,8 @@ class Indexer:
         for path in documents:
 
             source = path.name
-            raw_text = load_document(str(path))
-            metadata = self._parse_metadata(raw_text)
-            text = self._remove_front_matter(raw_text)
 
-            chunks = chunk_markdown(
-                text=text,
-                source=source,
-                last_updated=metadata["last_updated"],
-                document_type=metadata["document_type"],
-                access_level=metadata["access_level"],
-                version=1,
-            )
+            chunks = self._load_chunks(path, version=1)
 
             all_chunks.extend(chunks)
 
@@ -239,6 +189,7 @@ class Indexer:
                     if chunk.source == path.name
                 ],
                 "version": 1,
+                "file_type": get_loader(path).file_type,
             }
 
         self._save_manifest(manifest)
@@ -337,16 +288,8 @@ class Indexer:
                 0,
             )
 
-            raw_text = load_document(str(path))
-            metadata = self._parse_metadata(raw_text)
-            text = self._remove_front_matter(raw_text)
-
-            chunks = chunk_markdown(
-                text=text,
-                source=source,
-                last_updated=metadata["last_updated"],
-                document_type=metadata["document_type"],
-                access_level=metadata["access_level"],
+            chunks = self._load_chunks(
+                path,
                 version=old_version + 1,
             )
 
@@ -359,6 +302,7 @@ class Indexer:
                     for chunk in chunks
                 ],
                 "version": old_version + 1,
+                "file_type": get_loader(path).file_type,
             }
 
             print(
@@ -383,21 +327,12 @@ class Indexer:
 
         all_chunks = []
 
-        for path in sorted(
-            directory_path.glob("*.md")
-        ):
+        for path in self._discover_files(directory_path):
 
-            raw_text = load_document(str(path))
-            metadata = self._parse_metadata(raw_text)
-            text = self._remove_front_matter(raw_text)
             record = documents[path.name]
 
-            chunks = chunk_markdown(
-                text=text,
-                source=path.name,
-                last_updated=metadata["last_updated"],
-                document_type=metadata["document_type"],
-                access_level=metadata["access_level"],
+            chunks = self._load_chunks(
+                path,
                 version=record["version"],
             )
 

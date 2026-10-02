@@ -2,6 +2,7 @@ import requests
 import streamlit as st
 import re
 import os
+import mimetypes
 
 if "API_BASE_URL" in st.secrets:
     API_BASE_URL = st.secrets["API_BASE_URL"]
@@ -70,11 +71,14 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-    st.caption("Upload Markdown documentation " "to add it to the knowledge base.")
+    st.caption(
+        "Upload documentation to add it to the knowledge base. "
+        "Supported formats: MD, TXT, PDF, DOCX, HTML."
+    )
 
     uploaded_file = st.file_uploader(
-        "Upload Markdown",
-        type=["md"],
+        "Upload document",
+        type=["md", "txt", "pdf", "docx", "html", "htm"],
     )
 
     if uploaded_file is not None:
@@ -94,7 +98,10 @@ with st.sidebar:
                             "file": (
                                 uploaded_file.name,
                                 uploaded_file.getvalue(),
-                                "text/markdown",
+                                mimetypes.guess_type(
+                                    uploaded_file.name
+                                )[0]
+                                or "application/octet-stream",
                             )
                         },
                         headers={
@@ -304,6 +311,15 @@ if query:
                     "",
                 )
 
+                citation_source = citation.get(
+                    "source",
+                    "",
+                )
+
+                page = citation.get(
+                    "page",
+                )
+
                 icon = "✅" if supported else "⚠️"
 
                 source_name = chunk_id
@@ -317,6 +333,16 @@ if query:
                 with st.expander(f"{icon} {source_name} . {status}"):
 
                     st.caption(f"Chunk: {chunk_id}")
+
+                    if citation_source:
+                        if page is not None:
+                            st.caption(
+                                f"Source: {citation_source} · Page {page}"
+                            )
+                        else:
+                            st.caption(
+                                f"Source: {citation_source}"
+                            )
 
                     if claim:
 

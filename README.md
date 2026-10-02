@@ -1,6 +1,6 @@
 # Support Knowledge Copilot
 
-A RAG-based support knowledge assistant with hybrid retrieval, access control, document versioning, freshness-aware retrieval, and verified citations.
+A RAG-based support knowledge assistant with multi-format document ingestion (Markdown, TXT, PDF, DOCX, HTML), hybrid retrieval, access control, document versioning, freshness-aware retrieval, and verified citations.
 
 ## Architecture
 
@@ -14,6 +14,55 @@ A RAG-based support knowledge assistant with hybrid retrieval, access control, d
 - **Generation + citation verification:** DeepSeek
 - **Authentication + user profiles:** Supabase Auth + Supabase Postgres
 - **Access levels:** public, internal, admin
+- **Ingestion:** format-dispatching loaders (`app/ingestion/`) for MD, TXT, PDF, DOCX and HTML with deterministic chunk IDs and incremental indexing
+
+## Document ingestion
+
+Supported formats:
+
+| Format | Extensions | Extraction | Chunking |
+|---|---|---|---|
+| Markdown | `.md` | UTF-8 + optional YAML front matter | heading-aware (`#`–`###`) |
+| Plain text | `.txt` | UTF-8 | generic paragraph chunking |
+| PDF | `.pdf` | pypdf, text layer per page | page-aware + generic |
+| Word | `.docx` | python-docx, paragraph text | heading-aware when headings exist, otherwise generic |
+| HTML | `.html`, `.htm` | BeautifulSoup visible text | heading-aware (`h1`–`h3`) |
+
+```text
+document → loader (format dispatch) → LoadedDocument → chunk_document() → list[Chunk]
+        → Qdrant (Cloud Inference) + BM25 → hybrid RRF retrieval
+```
+
+- Loaders live in `app/ingestion/loader.py`. The indexer never parses a format
+  itself — it asks the loader layer for a normalized `LoadedDocument`.
+- `SUPPORTED_EXTENSIONS` is owned by the ingestion layer and reused by the
+  indexer for discovery, so new/modified/unchanged/deleted detection works for
+  every format. Content hashes are always computed over the raw file bytes.
+- Chunk IDs remain deterministic: `{filename}_chunk_{n}`, numbered from 1 in
+  document order. The same unchanged file always produces the same IDs.
+- Markdown metadata is unchanged (front matter unchanged). Non-Markdown formats
+  use the existing metadata defaults. `file_type` and `page` are additive,
+  optional chunk/Qdrant payload fields — the ACL fields are untouched.
+- `app/ingestion/frontmatter.py` holds the shared front-matter parser;
+  `app/ingestion/chunker.py` holds the shared section/text/page chunkers.
+
+### Upload support
+
+The admin upload endpoint (`POST /api/documents`) and the Streamlit sidebar
+accept MD, TXT, PDF, DOCX and HTML. The backend validates the extension
+independently of the UI, enforces a 20 MB size limit, and rejects unparsable
+files before indexing. Uploaded content is never executed.
+
+### Limitations
+
+- Scanned / image-only PDFs are not supported: a PDF with no extractable text
+  returns a clear error (OCR is out of scope for this phase).
+- Embedded images are not extracted from any format.
+- HTML JavaScript is never executed — only visible text is indexed, and
+  `<script>`, `<style>` and `<noscript>` are stripped before chunking.
+- DOCX tables and images are not extracted; paragraph text only.
+- XLSX, PPTX, CSV and EPUB are not currently supported.
+- No LangChain / LlamaIndex / Unstructured; ingestion stays small and explicit.
 
 ## Local setup
 
@@ -106,7 +155,7 @@ Do not commit real secrets.
 
 Qdrant vectors are stored in Qdrant Cloud, while BM25 is bundled with the backend image/repository.
 
-The current admin upload endpoint writes uploaded Markdown and the regenerated BM25 index to the backend filesystem. On Render, the default filesystem is ephemeral. Therefore uploaded documents are not durable across restarts/redeploys unless a paid persistent disk or an external document/object-storage workflow is added. The committed 120-chunk corpus remains available because it is part of the repository and Qdrant Cloud.
+The current admin upload endpoint writes uploaded documents (MD, TXT, PDF, DOCX, HTML) and the regenerated BM25 index to the backend filesystem. On Render, the default filesystem is ephemeral. Therefore uploaded documents are not durable across restarts/redeploys unless a paid persistent disk or an external document/object-storage workflow is added. The committed 120-chunk corpus remains available because it is part of the repository and Qdrant Cloud.
 
 ## Production flow
 
