@@ -116,6 +116,8 @@ class Indexer:
 
         print(f"Found {len(documents)} documents.")
 
+        self.vector_store.create_collection()
+
         for path in documents:
 
             source = path.name

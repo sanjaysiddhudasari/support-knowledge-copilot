@@ -1,3 +1,5 @@
+import os
+
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -8,6 +10,14 @@ from qdrant_client.models import (
 )
 from uuid import uuid5, NAMESPACE_URL
 
+from dotenv import load_dotenv
+from qdrant_client import QdrantClient
+
+load_dotenv()
+
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+
 COLLECTION_NAME = "support_chunks"
 VECTOR_SIZE = 384
 
@@ -15,7 +25,13 @@ VECTOR_SIZE = 384
 class VectorStore:
 
     def __init__(self, path: str = "data/qdrant"):
-        self.client = QdrantClient(path=path)
+        if QDRANT_URL and QDRANT_API_KEY:
+            self.client = QdrantClient(
+                url=QDRANT_URL,
+                api_key=QDRANT_API_KEY,
+            )
+        else:
+            self.client = QdrantClient(path=path)
 
 
     def create_collection(self):
