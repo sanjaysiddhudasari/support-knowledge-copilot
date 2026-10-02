@@ -2,8 +2,8 @@ from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
-from auth.models import User
-from auth.dependencies import get_current_user
+from app.auth.models import User
+from app.auth.dependencies import get_current_user
 
 from app.retrieval.indexer import Indexer
 
@@ -22,6 +22,12 @@ async def upload_document(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
 ):
+
+    if current_user.access_level != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Admin access required.",
+        )
 
     # Only Markdown for now.
     if not file.filename:
