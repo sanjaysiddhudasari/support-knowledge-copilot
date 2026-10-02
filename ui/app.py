@@ -311,6 +311,15 @@ if query:
                     "",
                 )
 
+                citation_source = citation.get(
+                    "source",
+                    "",
+                )
+
+                page = citation.get(
+                    "page",
+                )
+
                 icon = "✅" if supported else "⚠️"
 
                 source_name = chunk_id
@@ -324,6 +333,16 @@ if query:
                 with st.expander(f"{icon} {source_name} . {status}"):
 
                     st.caption(f"Chunk: {chunk_id}")
+
+                    if citation_source:
+                        if page is not None:
+                            st.caption(
+                                f"Source: {citation_source} · Page {page}"
+                            )
+                        else:
+                            st.caption(
+                                f"Source: {citation_source}"
+                            )
 
                     if claim:
 
