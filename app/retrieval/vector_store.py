@@ -25,7 +25,9 @@ EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 class VectorStore:
 
     def __init__(self, path: str = "data/qdrant"):
-        if QDRANT_URL and QDRANT_API_KEY:
+        self.cloud = bool(QDRANT_URL and QDRANT_API_KEY)
+
+        if self.cloud:
             self.client = QdrantClient(
                 url=QDRANT_URL,
                 api_key=QDRANT_API_KEY,
@@ -54,13 +56,25 @@ class VectorStore:
             ),
         )
 
-    def upsert_chunks(self, chunks, embeddings):
+    def upsert_chunks(self, chunks, embeddings=None):
         points = []
 
-        for chunk, embedding in zip(chunks, embeddings):
+        for index, chunk in enumerate(chunks):
+            if self.cloud and embeddings is None:
+                vector = Document(
+                    text=chunk.text,
+                    model=EMBEDDING_MODEL,
+                )
+            else:
+                if embeddings is None:
+                    raise ValueError(
+                        "Embeddings are required for local Qdrant."
+                    )
+                vector = embeddings[index]
+
             point = PointStruct(
                 id=str(uuid5(NAMESPACE_URL, chunk.chunk_ids)),
-                vector=embedding,
+                vector=vector,
                 payload={
                     "chunk_ids": chunk.chunk_ids,
                     "text": chunk.text,
@@ -114,7 +128,7 @@ class VectorStore:
         query: str,
         top_k: int = 5,
     ):
-        if not (QDRANT_URL and QDRANT_API_KEY):
+        if not self.cloud:
             raise RuntimeError(
                 "Cloud text inference requires QDRANT_URL and QDRANT_API_KEY."
             )
