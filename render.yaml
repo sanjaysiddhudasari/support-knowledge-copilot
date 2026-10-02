@@ -10,6 +10,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.11
+      - key: RETRIEVAL_STRATEGY
+        value: hybrid
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY
