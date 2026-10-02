@@ -5,9 +5,6 @@ from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from app.auth.models import User
 from app.auth.dependencies import get_current_user
 
-from app.retrieval.indexer import Indexer
-
-
 router = APIRouter(
     prefix="/api",
     tags=["Documents"],
@@ -70,7 +67,7 @@ async def upload_document(
 
     try:
 
-        indexer = Indexer()
+        indexer = __import__("app.retrieval.indexer", fromlist=["Indexer"]).Indexer()
 
         indexer.index_incremental(
             directory=str(RAW_DIR)
