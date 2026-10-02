@@ -1,7 +1,9 @@
 from datetime import date
 from pathlib import Path
 
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
+from auth.models import User
+from auth.dependencies import get_current_user
 
 from app.retrieval.indexer import Indexer
 
@@ -17,7 +19,8 @@ RAW_DIR = Path("data/raw")
 
 @router.post("/documents")
 async def upload_document(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
 ):
 
     # Only Markdown for now.

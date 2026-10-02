@@ -38,24 +38,38 @@ class RetrievalService:
 
         if strategy == "dense":
 
-            return self.dense_retriever.retrieve(
+            results = self.dense_retriever.retrieve(
                 query=query,
                 top_k=top_k,
+            )
+
+            return self.access_controller.filter_results(
+                results,
+                user_access_level=user_access_level,
             )
 
         if strategy == "bm25":
 
-            return self.bm25_retriever.retrieve(
+            results = self.bm25_retriever.retrieve(
                 query=query,
                 top_k=top_k,
             )
 
+            return self.access_controller.filter_results(
+                results,
+                user_access_level=user_access_level,
+            )
+
         if strategy == "hybrid":
 
-            return self.hybrid_retriever.retrieve(
+            results = self.hybrid_retriever.retrieve(
                 query=query,
                 top_k=top_k,
                 candidate_k=candidate_k,
+            )
+            return self.access_controller.filter_results(
+                results,
+                user_access_level=user_access_level,
             )
 
         if strategy == "hybrid_rerank":

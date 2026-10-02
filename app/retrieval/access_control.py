@@ -18,6 +18,6 @@ class AccessController:
             for result in results
             if self.LEVELS.get(
                 result["chunk"].access_level,
-                -1,
+                999,
             ) <= user_level
         ]

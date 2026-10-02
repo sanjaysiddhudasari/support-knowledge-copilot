@@ -21,10 +21,11 @@ st.set_page_config(
 
 def login(email: str, password: str):
     response = requests.post(
-        API_URL,
-        json={"query": query},
-        headers={"Authorization": f"Bearer {st.session_state.access_token}"},
-        timeout=120,
+        f"{API_BASE_URL}/api/auth/login",
+        json={
+            "email": email,
+            "password": password,
+        },
     )
 
     if response.status_code != 200:
@@ -182,6 +183,9 @@ if query:
                 response = requests.post(
                     API_URL,
                     json={"query": query},
+                    headers={
+                        "Authorization": f"Bearer {st.session_state.access_token}"
+                    },
                     timeout=120,
                 )
 
