@@ -29,16 +29,26 @@ class CitationVerifier:
 
         self.model = model
 
+    @staticmethod
+    def _get_chunk(result):
+        # Hybrid retrieval returns dictionaries, while dense/BM25 return
+        # RetrievalResult Pydantic models.
+        if isinstance(result, dict):
+            return result.get("chunk")
+        return getattr(result, "chunk", None)
+
     def verify(
         self,
         citations: list[Citation],
         results,
     ) -> list[Citation]:
 
-        chunks_by_id = {
-            result["chunk"].chunk_ids: result["chunk"]
-            for result in results
-        }
+        chunks_by_id = {}
+
+        for result in results:
+            chunk = self._get_chunk(result)
+            if chunk is not None:
+                chunks_by_id[chunk.chunk_ids] = chunk
 
         verified_citations = []
 
@@ -64,6 +74,11 @@ class CitationVerifier:
 
                 continue
 
+            citation_metadata = {
+                "source": chunk.source,
+                "page": getattr(chunk, "page", None),
+            }
+
             if not citation.claim.strip():
 
                 verified_citations.append(
@@ -74,6 +89,7 @@ class CitationVerifier:
                                 "The citation did not have an "
                                 "associated claim."
                             ),
+                            **citation_metadata,
                         }
                     )
                 )
@@ -90,6 +106,7 @@ class CitationVerifier:
                     update={
                         "supported": verdict["supported"],
                         "explanation": verdict["explanation"],
+                        **citation_metadata,
                     }
                 )
             )
