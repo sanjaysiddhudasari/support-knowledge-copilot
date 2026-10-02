@@ -9,6 +9,7 @@ from qdrant_client.models import (
     PointIdsList,
     PointStruct,
     VectorParams,
+    Document,
 )
 
 load_dotenv()
@@ -18,6 +19,7 @@ QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 
 COLLECTION_NAME = "support_chunks"
 VECTOR_SIZE = 384
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 class VectorStore:
@@ -27,6 +29,7 @@ class VectorStore:
             self.client = QdrantClient(
                 url=QDRANT_URL,
                 api_key=QDRANT_API_KEY,
+                cloud_inference=True,
             )
         else:
             self.client = QdrantClient(path=path)
@@ -105,3 +108,28 @@ class VectorStore:
             limit=top_k,
         )
         return [(p.score, p.payload) for p in response.points]
+
+    def search_text(
+        self,
+        query: str,
+        top_k: int = 5,
+    ):
+        if not (QDRANT_URL and QDRANT_API_KEY):
+            raise RuntimeError(
+                "Cloud text inference requires QDRANT_URL and QDRANT_API_KEY."
+            )
+
+        response = self.client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=Document(
+                text=query,
+                model=EMBEDDING_MODEL,
+            ),
+            limit=top_k,
+            with_payload=True,
+        )
+
+        return [
+            (point.score, point.payload)
+            for point in response.points
+        ]
