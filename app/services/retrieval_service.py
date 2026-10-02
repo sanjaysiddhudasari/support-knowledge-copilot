@@ -23,9 +23,15 @@ class RetrievalService:
             bm25_retriever=self.bm25_retriever,
         )
 
+        default_strategy = (
+            "hybrid"
+            if os.getenv("QDRANT_URL") and os.getenv("QDRANT_API_KEY")
+            else "hybrid_rerank"
+        )
+
         self.strategy = os.getenv(
             "RETRIEVAL_STRATEGY",
-            "hybrid_rerank",
+            default_strategy,
         )
 
         self.reranker = (
