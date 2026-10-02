@@ -28,8 +28,7 @@ services:
       - api
 
     environment:
-      API_URL: http://api:8000/api/query
-      UPLOAD_URL: http://api:8000/api/documents
+      API_BASE_URL: http://api:8000
 
     ports:
       - "8501:8501"
