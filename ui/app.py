@@ -3,10 +3,13 @@ import streamlit as st
 import re
 import os
 
-API_BASE_URL = os.getenv(
-    "API_BASE_URL",
-    "http://127.0.0.1:8000",
-)
+if "API_BASE_URL" in st.secrets:
+    API_BASE_URL = st.secrets["API_BASE_URL"]
+else:
+    API_BASE_URL = os.getenv(
+        "API_BASE_URL",
+        "http://127.0.0.1:8000",
+    )
 
 API_URL = f"{API_BASE_URL}/api/query"
 UPLOAD_URL = f"{API_BASE_URL}/api/documents"
@@ -155,10 +158,6 @@ query = st.chat_input("Ask a question about AcmeCloud...")
 
 if query:
 
-    # --------------------------------------------------
-    # User message
-    # --------------------------------------------------
-
     st.session_state.messages.append(
         {
             "role": "user",
@@ -169,10 +168,6 @@ if query:
     with st.chat_message("user"):
 
         st.markdown(query)
-
-    # --------------------------------------------------
-    # Assistant
-    # --------------------------------------------------
 
     with st.chat_message("assistant"):
 
@@ -199,25 +194,17 @@ if query:
 
                 st.stop()
 
-        # --------------------------------------------------
-        # Answer
-        # --------------------------------------------------
-
         answer = data.get(
             "answer",
             "No answer was returned.",
         )
 
-        # Remove raw citation markers such as:
-        # [account-recovery.md_chunk_2]
-        # [new_test.md_chunk_5]
         display_answer = re.sub(
             r"\[[\w.-]+_chunk_\d+\]",
             "",
             answer,
         )
 
-        # Clean up accidental extra whitespace.
         display_answer = re.sub(
             r"[ \t]+\n",
             "\n",
@@ -225,10 +212,6 @@ if query:
         ).strip()
 
         st.markdown(display_answer)
-
-        # --------------------------------------------------
-        # Confidence
-        # --------------------------------------------------
 
         confidence = data.get("confidence")
 
@@ -246,7 +229,6 @@ if query:
 
             confidence_value = confidence or 0
 
-        # Make sure it is numeric
         try:
 
             confidence_value = float(confidence_value)
@@ -258,17 +240,11 @@ if query:
 
             confidence_value = 0.0
 
-        # --------------------------------------------------
-        # Answerability
-        # --------------------------------------------------
-
         answerability = data.get(
             "answerable",
             False,
         )
 
-        # Some API responses may expose answerability
-        # as a nested object.
         if isinstance(
             answerability,
             dict,
@@ -278,10 +254,6 @@ if query:
                 "answerable",
                 False,
             )
-
-        # --------------------------------------------------
-        # Metrics
-        # --------------------------------------------------
 
         st.divider()
 
@@ -301,10 +273,6 @@ if query:
                 "Yes" if answerability else "No",
             )
 
-        # --------------------------------------------------
-        # Citations
-        # --------------------------------------------------
-
         citations = data.get(
             "citations",
             [],
@@ -316,8 +284,6 @@ if query:
 
             for citation in citations:
 
-                # Handle both Pydantic-style serialized
-                # dictionaries and normal dictionaries.
                 chunk_id = citation.get(
                     "chunk_id",
                     "Unknown",
@@ -340,17 +306,14 @@ if query:
 
                 icon = "✅" if supported else "⚠️"
 
-                # Extract filename and chunk number
-                # from IDs such as:
-                #
-                # account-recovery.md_chunk_2
-
                 source_name = chunk_id
 
                 if "_chunk_" in chunk_id:
 
                     source_name = chunk_id.split("_chunk_")[0]
+
                 status = "Verified" if supported else "Not verified"
+
                 with st.expander(f"{icon} {source_name} . {status}"):
 
                     st.caption(f"Chunk: {chunk_id}")
@@ -366,10 +329,6 @@ if query:
         else:
 
             st.info("No verified sources were returned.")
-
-    # --------------------------------------------------
-    # Save Assistant Response
-    # --------------------------------------------------
 
     st.session_state.messages.append(
         {
