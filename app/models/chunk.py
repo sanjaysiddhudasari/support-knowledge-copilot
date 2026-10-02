@@ -15,4 +15,7 @@ class Chunk(BaseModel):
     access_level:str="public"
     version: int = 1
 
-    
+    # Optional, backward-compatible ingestion metadata. ``None`` for chunks
+    # produced before multi-format ingestion and for Markdown-only corpora.
+    file_type: str | None = None
+    page: int | None = None

@@ -1,6 +1,4 @@
-from datetime import date
-
-from app.ingestion.chunker import chunk_markdown
+from app.ingestion.chunker import chunk_document
 from app.ingestion.loader import load_document
 from app.retrieval.bm25 import BM25Retriever
 
@@ -9,16 +7,13 @@ def main():
 
     source = "password-policy.md"
 
-    text = load_document(
+    document = load_document(
         f"data/raw/{source}"
     )
 
-    chunks = chunk_markdown(
-        text=text,
-        source=source,
-        last_updated=date(2026, 8, 1),
-        document_type="policy",
-        access_level="internal",
+    chunks = chunk_document(
+        document,
+        version=1,
     )
 
     retriever = BM25Retriever()

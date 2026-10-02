@@ -22,6 +22,37 @@ VECTOR_SIZE = 384
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
+def _build_payload(chunk) -> dict:
+    """Build the Qdrant payload for a chunk.
+
+    The core fields are always present so existing collections stay
+    compatible. ``file_type`` and ``page`` are optional ingestion metadata and
+    are only written when known (PDF pages, non-Markdown formats).
+    """
+
+    payload = {
+        "chunk_ids": chunk.chunk_ids,
+        "text": chunk.text,
+        "source": chunk.source,
+        "section": chunk.section,
+        "last_updated": str(chunk.last_updated),
+        "document_type": chunk.document_type,
+        "access_level": chunk.access_level,
+        "version": getattr(chunk, "version", 1),
+    }
+
+    file_type = getattr(chunk, "file_type", None)
+    page = getattr(chunk, "page", None)
+
+    if file_type is not None:
+        payload["file_type"] = file_type
+
+    if page is not None:
+        payload["page"] = page
+
+    return payload
+
+
 class VectorStore:
 
     def __init__(self, path: str = "data/qdrant"):
@@ -75,16 +106,7 @@ class VectorStore:
             point = PointStruct(
                 id=str(uuid5(NAMESPACE_URL, chunk.chunk_ids)),
                 vector=vector,
-                payload={
-                    "chunk_ids": chunk.chunk_ids,
-                    "text": chunk.text,
-                    "source": chunk.source,
-                    "section": chunk.section,
-                    "last_updated": str(chunk.last_updated),
-                    "document_type": chunk.document_type,
-                    "access_level": chunk.access_level,
-                    "version": getattr(chunk, "version", 1),
-                },
+                payload=_build_payload(chunk),
             )
             points.append(point)
 
