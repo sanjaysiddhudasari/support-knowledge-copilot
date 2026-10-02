@@ -1,5 +1,7 @@
 import os
+from uuid import NAMESPACE_URL, uuid5
 
+from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -8,10 +10,6 @@ from qdrant_client.models import (
     PointStruct,
     VectorParams,
 )
-from uuid import uuid5, NAMESPACE_URL
-
-from dotenv import load_dotenv
-from qdrant_client import QdrantClient
 
 load_dotenv()
 
@@ -33,11 +31,8 @@ class VectorStore:
         else:
             self.client = QdrantClient(path=path)
 
-
     def create_collection(self):
-
         collections = self.client.get_collections().collections
-
         existing_names = {
             collection.name
             for collection in collections
@@ -55,13 +50,11 @@ class VectorStore:
                 distance=Distance.COSINE,
             ),
         )
-    
-    def upsert_chunks(self, chunks, embeddings):
 
+    def upsert_chunks(self, chunks, embeddings):
         points = []
 
         for chunk, embedding in zip(chunks, embeddings):
-
             point = PointStruct(
                 id=str(uuid5(NAMESPACE_URL, chunk.chunk_ids)),
                 vector=embedding,
@@ -76,7 +69,6 @@ class VectorStore:
                     "version": getattr(chunk, "version", 1),
                 },
             )
-
             points.append(point)
 
         self.client.upsert(
@@ -103,14 +95,13 @@ class VectorStore:
         )
 
     def search(
-            self,
-            query_vector: list[float],
-            top_k: int = 5,
-        ):
-            response = self.client.query_points(
-                collection_name=COLLECTION_NAME,
-                query=query_vector,
-                limit=top_k,
-            )
-            return [(p.score, p.payload) for p in response.points]
-    
+        self,
+        query_vector: list[float],
+        top_k: int = 5,
+    ):
+        response = self.client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=query_vector,
+            limit=top_k,
+        )
+        return [(p.score, p.payload) for p in response.points]
