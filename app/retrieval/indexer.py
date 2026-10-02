@@ -3,10 +3,10 @@ from datetime import date
 import re
 import hashlib
 import json
+import os
 
 from app.ingestion.chunker import chunk_markdown
 from app.ingestion.loader import load_document
-from app.retrieval.embedding import EmbeddingService
 from app.retrieval.vector_store import VectorStore
 from app.retrieval.bm25 import BM25Retriever
 
@@ -20,9 +20,13 @@ class Indexer:
 
         self.manifest_path = Path(manifest_path)
 
-        self.embedding_service = EmbeddingService()
         self.vector_store = VectorStore()
         self.bm25_retriever = BM25Retriever()
+
+        self.embedding_service = None
+        if not (os.getenv("QDRANT_URL") and os.getenv("QDRANT_API_KEY")):
+            from app.retrieval.embedding import EmbeddingService
+            self.embedding_service = EmbeddingService()
 
     def _load_manifest(self):
         if not self.manifest_path.exists():
@@ -100,97 +104,6 @@ class Indexer:
 
         return text
 
-    def index_corpus(
-        self,
-        directory: str = "data/raw",
-    ):
-
-        directory_path = Path(directory)
-
-        documents = sorted(directory_path.glob("*.md"))
-
-        if not documents:
-            raise RuntimeError(f"No Markdown documents found in {directory}")
-
-        all_chunks = []
-
-        print(f"Found {len(documents)} documents.")
-
-        self.vector_store.create_collection()
-
-        for path in documents:
-
-            source = path.name
-
-            raw_text = load_document(str(path))
-
-            metadata = self._parse_metadata(raw_text)
-
-            text = self._remove_front_matter(raw_text)
-
-            chunks = chunk_markdown(
-                text=text,
-                source=source,
-                last_updated=metadata["last_updated"],
-                document_type=metadata["document_type"],
-                access_level=metadata["access_level"],
-                version=1,
-            )
-
-            all_chunks.extend(chunks)
-
-            print(f"{source}: " f"{len(chunks)} chunks")
-
-        print(f"\nTotal chunks: " f"{len(all_chunks)}")
-
-        # --------------------------------------------------
-        # Build BM25 ONCE using the complete corpus
-        # --------------------------------------------------
-
-        self.bm25_retriever.build_index(all_chunks)
-
-        self.bm25_retriever.save(BM25_INDEX_PATH)
-
-        print(f"Saved BM25 index: " f"{BM25_INDEX_PATH}")
-
-        # --------------------------------------------------
-        # Create embeddings for all chunks
-        # --------------------------------------------------
-
-        embeddings = self.embedding_service.embed_texts(
-            [chunk.text for chunk in all_chunks]
-        )
-
-        # --------------------------------------------------
-        # Store all chunks in Qdrant
-        # --------------------------------------------------
-
-        self.vector_store.upsert_chunks(
-            chunks=all_chunks,
-            embeddings=embeddings,
-        )
-
-        print(f"Indexed {len(all_chunks)} chunks " f"into Qdrant.")
-
-        # --------------------------------------------------
-        # Save indexing manifest
-        # --------------------------------------------------
-
-        manifest = {"documents": {}}
-
-        for path in documents:
-            manifest["documents"][path.name] = {
-                "content_hash": self._calculate_hash(path),
-                "chunk_ids": [
-                    chunk.chunk_ids for chunk in all_chunks if chunk.source == path.name
-                ],
-                "version":1,
-            }
-
-        self._save_manifest(manifest)
-
-        print(f"Saved manifest: " f"{self.manifest_path}")
-
     def _calculate_hash(self, path: Path) -> str:
         content = path.read_bytes()
         return hashlib.sha256(content).hexdigest()
@@ -200,7 +113,10 @@ class Indexer:
         manifest = self._load_manifest()
         documents = manifest.get("documents", {})
 
-        current_files = {path.name: path for path in directory.glob("*.md")}
+        current_files = {
+            path.name: path
+            for path in directory.glob("*.md")
+        }
 
         new_files = []
         modified_files = []
@@ -208,7 +124,7 @@ class Indexer:
         unchanged_files = []
 
         for filename, path in current_files.items():
-            current_hash = self._calculate_hash(path=path)
+            current_hash = self._calculate_hash(path)
 
             old_record = documents.get(filename)
 
@@ -233,10 +149,103 @@ class Indexer:
         }
 
     def _save_manifest(self, manifest):
-        self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        self.manifest_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
         with open(self.manifest_path, "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2)
+
+    def _build_embeddings(self, chunks):
+        if not chunks:
+            return None
+
+        if self.embedding_service is not None:
+            return self.embedding_service.embed_texts(
+                [chunk.text for chunk in chunks]
+            )
+
+        return None
+
+    def index_corpus(
+        self,
+        directory: str = "data/raw",
+    ):
+
+        directory_path = Path(directory)
+
+        documents = sorted(directory_path.glob("*.md"))
+
+        if not documents:
+            raise RuntimeError(
+                f"No Markdown documents found in {directory}"
+            )
+
+        all_chunks = []
+
+        print(f"Found {len(documents)} documents.")
+
+        self.vector_store.create_collection()
+
+        for path in documents:
+
+            source = path.name
+            raw_text = load_document(str(path))
+            metadata = self._parse_metadata(raw_text)
+            text = self._remove_front_matter(raw_text)
+
+            chunks = chunk_markdown(
+                text=text,
+                source=source,
+                last_updated=metadata["last_updated"],
+                document_type=metadata["document_type"],
+                access_level=metadata["access_level"],
+                version=1,
+            )
+
+            all_chunks.extend(chunks)
+
+            print(
+                f"{source}: {len(chunks)} chunks"
+            )
+
+        print(
+            f"\nTotal chunks: {len(all_chunks)}"
+        )
+
+        self.bm25_retriever.build_index(all_chunks)
+        self.bm25_retriever.save(BM25_INDEX_PATH)
+
+        embeddings = self._build_embeddings(all_chunks)
+
+        self.vector_store.upsert_chunks(
+            chunks=all_chunks,
+            embeddings=embeddings,
+        )
+
+        print(
+            f"Indexed {len(all_chunks)} chunks into Qdrant."
+        )
+
+        manifest = {"documents": {}}
+
+        for path in documents:
+            manifest["documents"][path.name] = {
+                "content_hash": self._calculate_hash(path),
+                "chunk_ids": [
+                    chunk.chunk_ids
+                    for chunk in all_chunks
+                    if chunk.source == path.name
+                ],
+                "version": 1,
+            }
+
+        self._save_manifest(manifest)
+
+        print(
+            f"Saved manifest: {self.manifest_path}"
+        )
 
     def index_incremental(
         self,
@@ -259,54 +268,76 @@ class Indexer:
         print(f"Deleted:   {len(deleted_files)}")
 
         manifest = self._load_manifest()
-        documents = manifest.setdefault("documents", {})
-
-        # --------------------------------------------------
-        # 1. Delete chunks belonging to deleted documents
-        # --------------------------------------------------
+        documents = manifest.setdefault(
+            "documents",
+            {},
+        )
 
         for filename in deleted_files:
 
-            old_record = documents.get(filename, {})
-            old_chunk_ids = old_record.get("chunk_ids", [])
+            old_record = documents.get(
+                filename,
+                {},
+            )
+            old_chunk_ids = old_record.get(
+                "chunk_ids",
+                [],
+            )
 
-            self.vector_store.delete_chunks(old_chunk_ids)
+            self.vector_store.delete_chunks(
+                old_chunk_ids
+            )
 
-            documents.pop(filename, None)
+            documents.pop(
+                filename,
+                None,
+            )
 
-            print(f"Deleted document: {filename}")
-
-        # --------------------------------------------------
-        # 2. Delete old chunks for modified documents
-        # --------------------------------------------------
+            print(
+                f"Deleted document: {filename}"
+            )
 
         for path in modified_files:
 
             filename = path.name
 
-            old_record = documents.get(filename, {})
-            old_chunk_ids = old_record.get("chunk_ids", [])
+            old_record = documents.get(
+                filename,
+                {},
+            )
+            old_chunk_ids = old_record.get(
+                "chunk_ids",
+                [],
+            )
 
-            self.vector_store.delete_chunks(old_chunk_ids)
+            self.vector_store.delete_chunks(
+                old_chunk_ids
+            )
 
-            print(f"Removed old chunks: {filename}")
+            print(
+                f"Removed old chunks: {filename}"
+            )
 
-        # --------------------------------------------------
-        # 3. Process new + modified documents
-        # --------------------------------------------------
-
-        files_to_index = new_files + modified_files
+        files_to_index = (
+            new_files + modified_files
+        )
 
         all_new_chunks = []
 
         for path in files_to_index:
+
             source = path.name
 
-            old_record = documents.get(source, {})
-            old_version = old_record.get("version", 0)
+            old_record = documents.get(
+                source,
+                {},
+            )
+            old_version = old_record.get(
+                "version",
+                0,
+            )
 
             raw_text = load_document(str(path))
-
             metadata = self._parse_metadata(raw_text)
             text = self._remove_front_matter(raw_text)
 
@@ -316,7 +347,7 @@ class Indexer:
                 last_updated=metadata["last_updated"],
                 document_type=metadata["document_type"],
                 access_level=metadata["access_level"],
-                version=old_version+1,
+                version=old_version + 1,
             )
 
             all_new_chunks.extend(chunks)
@@ -335,41 +366,30 @@ class Indexer:
                 f"(version {old_version + 1})"
             )
 
-        # --------------------------------------------------
-        # 4. Embed only new/modified chunks
-        # --------------------------------------------------
-
         if all_new_chunks:
 
-            embeddings = self.embedding_service.embed_texts(
-                [chunk.text for chunk in all_new_chunks]
+            embeddings = self._build_embeddings(
+                all_new_chunks
             )
-
-            # --------------------------------------------------
-            # 5. Upsert only new/modified chunks
-            # --------------------------------------------------
 
             self.vector_store.upsert_chunks(
                 chunks=all_new_chunks,
                 embeddings=embeddings,
             )
 
-            print(f"Indexed {len(all_new_chunks)} new chunks.")
-
-        # --------------------------------------------------
-        # 6. Rebuild BM25
-        # --------------------------------------------------
+            print(
+                f"Indexed {len(all_new_chunks)} new chunks."
+            )
 
         all_chunks = []
 
-        for path in sorted(directory_path.glob("*.md")):
+        for path in sorted(
+            directory_path.glob("*.md")
+        ):
 
             raw_text = load_document(str(path))
-
             metadata = self._parse_metadata(raw_text)
-
             text = self._remove_front_matter(raw_text)
-
             record = documents[path.name]
 
             chunks = chunk_markdown(
@@ -384,15 +404,14 @@ class Indexer:
             all_chunks.extend(chunks)
 
         self.bm25_retriever.build_index(all_chunks)
-
         self.bm25_retriever.save(BM25_INDEX_PATH)
-
-        # --------------------------------------------------
-        # 7. Save manifest
-        # --------------------------------------------------
 
         self._save_manifest(manifest)
 
-        print(f"Saved manifest: {self.manifest_path}")
+        print(
+            f"Saved manifest: {self.manifest_path}"
+        )
 
-        print("\nIncremental indexing complete.")
+        print(
+            "\nIncremental indexing complete."
+        )
