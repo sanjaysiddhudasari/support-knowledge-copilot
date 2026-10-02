@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.auth.models import User
-from app.services.qa_service import QAService
 
 router = APIRouter(
     prefix="/api",
@@ -13,10 +12,11 @@ router = APIRouter(
 _qa_service = None
 
 
-def get_qa_service() -> QAService:
+def get_qa_service():
     global _qa_service
 
     if _qa_service is None:
+        from app.services.qa_service import QAService
         _qa_service = QAService()
 
     return _qa_service
@@ -30,6 +30,7 @@ class QueryRequest(BaseModel):
 def me(current_user: User = Depends(get_current_user)):
     return current_user
 
+
 @router.post("/query")
 def query(
     request: QueryRequest,
@@ -37,7 +38,7 @@ def query(
 ):
     result = get_qa_service().answer(
         query=request.query,
-        user_access_level=current_user.access_level
+        user_access_level=current_user.access_level,
     )
 
     return {
