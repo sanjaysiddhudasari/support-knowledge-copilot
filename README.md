@@ -6,10 +6,11 @@ A RAG-based support knowledge assistant with hybrid retrieval, access control, d
 
 - **Frontend:** Streamlit
 - **API:** FastAPI
-- **Dense retrieval:** Sentence Transformers + Qdrant Cloud
+- **Vector store:** Qdrant Cloud
+- **Deployed embeddings:** Qdrant Cloud Inference using `sentence-transformers/all-MiniLM-L6-v2` (384 dimensions)
 - **Lexical retrieval:** BM25 index stored in `data/bm25/index.joblib`
-- **Hybrid retrieval:** Reciprocal Rank Fusion (RRF)
-- **Reranking:** Cross-Encoder
+- **Hybrid retrieval:** Reciprocal Rank Fusion (RRF), used as the production default
+- **Reranking:** Cross-Encoder is supported for local/evaluation workflows but disabled by default in production to avoid its additional memory footprint
 - **Generation + citation verification:** DeepSeek
 - **Authentication + user profiles:** Supabase Auth + Supabase Postgres
 - **Access levels:** public, internal, admin
@@ -80,7 +81,7 @@ The repository includes `render.yaml`.
 4. The API starts with Uvicorn and exposes `/health`.
 5. Copy the resulting `https://...onrender.com` URL.
 
-The Blueprint uses the 2 GB `1c-2g` web-service plan because the current retrieval pipeline loads both an embedding model and a Cross-Encoder reranker.
+The deployed retrieval path uses Qdrant Cloud Inference instead of loading a local embedding model. Production retrieval defaults to hybrid RRF. The Cross-Encoder remains available for local/evaluation workflows but is not loaded by default in production, keeping the API compatible with Render's 512 MB free instance.
 
 ### Streamlit Community Cloud
 
@@ -109,16 +110,40 @@ The current admin upload endpoint writes uploaded Markdown and the regenerated B
 
 ## Production flow
 
+The deployed API does not load the local SentenceTransformer/PyTorch embedding model. Query and document embedding for Qdrant Cloud are handled through Qdrant Cloud Inference using the same `all-MiniLM-L6-v2` model used by the existing 384-dimensional collection.
+
 ```text
-Streamlit Cloud
-      |
-      | HTTPS + Supabase access token
-      v
-Render FastAPI
-      |----> Supabase Auth/Postgres
-      |----> Qdrant Cloud
-      |----> local BM25 index
-      |----> DeepSeek
-      v
-Answer + verified citations
+Streamlit Community Cloud
+          |
+          | HTTPS + Supabase access token
+          v
+      Render FastAPI
+          |
+          +----> Supabase Auth/Postgres
+          |
+          +----> Qdrant Cloud
+          |         |
+          |         +---- Cloud Inference
+          |              all-MiniLM-L6-v2
+          |
+          +----> Local BM25 index
+          |
+          +----> DeepSeek
+          |
+          v
+   Hybrid RRF retrieval
+          |
+          v
+ Answer + verified citations + confidence
 ```
+
+### Key production design decisions
+
+- **Qdrant Cloud is the managed vector database**; the deployed API does not maintain a local Qdrant database.
+- **Embedding inference is offloaded to Qdrant Cloud** so the Render service does not need to load PyTorch/SentenceTransformer for production queries.
+- **Hybrid RRF is the production retrieval strategy.**
+- **Cross-Encoder reranking remains available for local/evaluation experiments** but is disabled by default in production.
+- **BM25 remains local and bundled** because the current corpus is small.
+- **Supabase access control is applied after retrieval** so users only receive chunks permitted by their access level.
+- **Citation verification is performed against retrieved evidence before confidence is calculated.**
+
