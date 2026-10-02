@@ -7,7 +7,10 @@ class Reranker:
         self,
         model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
     ):
-        self.model = CrossEncoder(model_name)
+        self.model = CrossEncoder(
+            model_name,
+            device="cpu",
+        )
 
     def rerank(
         self,
@@ -44,4 +47,4 @@ class Reranker:
             reverse=True,
         )
 
-        return reranked[:top_k] 
+        return reranked[:top_k]
