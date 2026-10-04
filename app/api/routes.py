@@ -24,6 +24,10 @@ def get_qa_service():
 
 class QueryRequest(BaseModel):
     query: str
+    # Optional client-supplied correlation id. When present it is stored on the
+    # conversation's user + assistant messages and attached to the LangSmith
+    # trace for this query, so a stored message maps to one RAG trace.
+    query_id: str | None = None
 
 
 @router.get("/me")
@@ -36,11 +40,18 @@ def query(
     request: QueryRequest,
     current_user: User = Depends(get_current_user),
 ):
-    result = get_qa_service().answer(
-        query=request.query,
-        user_access_level=current_user.access_level,
-        user_id=current_user.id,
-    )
+    kwargs = {
+        "query": request.query,
+        "user_access_level": current_user.access_level,
+        "user_id": current_user.id,
+    }
+
+    # Only forwarded when the caller sends one, so the pipeline behaves
+    # exactly as before for callers that do not correlate messages.
+    if request.query_id:
+        kwargs["query_id"] = request.query_id
+
+    result = get_qa_service().answer(**kwargs)
 
     return {
         "answer": result["answer"],
@@ -50,4 +61,5 @@ def query(
             for citation in result["citations"]
         ],
         "confidence": result["confidence"],
+        "query_id": request.query_id,
     }

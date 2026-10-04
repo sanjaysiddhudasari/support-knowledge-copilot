@@ -84,6 +84,7 @@ class QAService:
         query: str,
         user_access_level:str="public",
         user_id: str | None = None,
+        query_id: str | None = None,
     ) -> QAAnswerResult:
 
         started = time.perf_counter()
@@ -98,6 +99,9 @@ class QAService:
                 "user_id": user_id,
                 "access_level": user_access_level,
                 "retrieval_strategy": strategy,
+                # Correlates this trace with the persisted conversation
+                # messages that share the same id. Identifiers only.
+                "query_id": query_id,
             },
             inputs={"query": query},
         ) as run:
