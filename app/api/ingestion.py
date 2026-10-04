@@ -96,7 +96,7 @@ async def upload_document(
     # cleanly instead of poisoning the index (and the file is removed again).
     try:
 
-        load_document(str(destination))
+        loaded = load_document(str(destination))
 
     except UnsupportedFormatError as error:
 
@@ -147,5 +147,6 @@ async def upload_document(
         "status": "success",
         "message": "Document uploaded and indexed.",
         "filename": filename,
+        "file_type": loaded.file_type,
         "indexed_at": str(date.today()),
     }
