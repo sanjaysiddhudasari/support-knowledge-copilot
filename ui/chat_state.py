@@ -5,6 +5,7 @@ unit-testable: every assistant message owns its confidence, answerability and
 citations, and history rendering never reads the latest query's globals.
 """
 
+import json
 import re
 import time
 import uuid
@@ -13,6 +14,10 @@ import uuid
 MESSAGES_KEY = "messages"
 TOKEN_KEY = "access_token"
 USER_KEY = "user"
+
+# UI state only — the database is the source of truth for history.
+CONVERSATIONS_KEY = "conversations"
+CURRENT_CONVERSATION_KEY = "current_conversation_id"
 
 FORMAT_META = {
     "markdown": {"label": "Markdown", "icon": "📚"},
@@ -148,8 +153,13 @@ def add_assistant_message(
     answerable=False,
     citations=None,
     error: str | None = None,
+    query_id: str | None = None,
 ) -> dict:
-    """Append an assistant turn, storing its own metadata snapshot."""
+    """Append an assistant turn, storing its own metadata snapshot.
+
+    ``query_id`` correlates this turn with the user turn it answers and with
+    the LangSmith trace for the RAG request. It is generated when not supplied.
+    """
 
     message = {
         "role": "assistant",
@@ -158,7 +168,7 @@ def add_assistant_message(
         "answerable": normalize_answerable(answerable),
         "citations": [dict(citation) for citation in (citations or [])],
         "error": error,
-        "query_id": uuid.uuid4().hex,
+        "query_id": query_id or uuid.uuid4().hex,
         "created_at": time.time(),
     }
 
@@ -173,3 +183,71 @@ def new_chat(state) -> list:
     state[MESSAGES_KEY] = []
 
     return state[MESSAGES_KEY]
+
+
+# ---------------------------------------------------------------------------
+# Stored row -> display message
+# ---------------------------------------------------------------------------
+
+
+def _citations_from_row(value) -> list:
+    """A ``jsonb`` column may arrive as a list or (rarely) a JSON string."""
+
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError):
+            return []
+
+    if not isinstance(value, list):
+        return []
+
+    return [
+        dict(citation)
+        for citation in value
+        if isinstance(citation, dict)
+    ]
+
+
+def message_from_row(row: dict) -> dict:
+    """Map a stored ``messages`` record to the shape the chat UI renders.
+
+    Assistant turns carry their stored confidence/answerability/citations —
+    nothing is recomputed when history is restored.
+    """
+
+    row = row or {}
+
+    role = row.get("role") or "assistant"
+
+    message = {
+        "role": role,
+        "content": row.get("content") or "",
+        "query_id": row.get("query_id"),
+        "created_at": row.get("created_at"),
+    }
+
+    if role == "assistant":
+        message["confidence"] = normalize_confidence(row.get("confidence"))
+        message["answerable"] = normalize_answerable(row.get("answerable"))
+        message["citations"] = _citations_from_row(row.get("citations"))
+        message["error"] = None
+
+    return message
+
+
+def messages_from_rows(rows) -> list:
+    """Chronological stored rows -> display messages."""
+
+    return [message_from_row(row) for row in (rows or [])]
+
+
+def conversation_title(row) -> str:
+    """Sidebar label for a conversation record."""
+
+    title = (row or {}).get("title")
+
+    if isinstance(title, str) and title.strip():
+        return title.strip()
+
+    return "New Chat"

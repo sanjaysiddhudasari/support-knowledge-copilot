@@ -1,41 +1,54 @@
 import mimetypes
 import os
+import uuid
 
 import requests
 import streamlit as st
 
 try:  # `streamlit run ui/app.py` (script dir on sys.path) vs running from repo root
     from ui.chat_state import (
+        CONVERSATIONS_KEY,
+        CURRENT_CONVERSATION_KEY,
+        MESSAGES_KEY,
         TOKEN_KEY,
         USER_KEY,
         add_assistant_message,
         add_user_message,
         citation_page,
         citation_source_name,
+        conversation_title,
         format_badge,
         format_line,
         format_meta,
         get_messages,
         init_chat_state,
+        messages_from_rows,
         new_chat,
         strip_citations,
     )
+    from ui.conversation_api import ConversationAPI
 except ImportError:  # pragma: no cover - depends on how Streamlit is launched
     from chat_state import (
+        CONVERSATIONS_KEY,
+        CURRENT_CONVERSATION_KEY,
+        MESSAGES_KEY,
         TOKEN_KEY,
         USER_KEY,
         add_assistant_message,
         add_user_message,
         citation_page,
         citation_source_name,
+        conversation_title,
         format_badge,
         format_line,
         format_meta,
         get_messages,
         init_chat_state,
+        messages_from_rows,
         new_chat,
         strip_citations,
     )
+    from conversation_api import ConversationAPI
 
 
 st.set_page_config(
@@ -151,13 +164,22 @@ def fetch_me(token: str):
     return response.json()
 
 
-def ask_question(query: str):
-    """Return ``(data, error)``. Never raises."""
+def ask_question(query: str, query_id: str | None = None):
+    """Return ``(data, error)``. Never raises.
+
+    ``query_id`` is forwarded so the RAG trace and the persisted conversation
+    messages share one correlation id.
+    """
+
+    payload = {"query": query}
+
+    if query_id:
+        payload["query_id"] = query_id
 
     try:
         response = requests.post(
             QUERY_URL,
-            json={"query": query},
+            json=payload,
             headers={
                 "Authorization": f"Bearer {st.session_state[TOKEN_KEY]}"
             },
@@ -237,6 +259,11 @@ def render_message_body(message: dict):
         f"Answerable {'✓' if answerable else '✗'}</div>",
         unsafe_allow_html=True,
     )
+
+    persistence_error = message.get("persistence_error")
+
+    if persistence_error:
+        st.caption(persistence_error)
 
     render_sources(message.get("citations") or [])
 
@@ -320,11 +347,65 @@ def render_auth_screen():
                     st.rerun()
 
 
+# ==================================================
+# Conversation state (database-backed)
+# ==================================================
+
+
+def load_conversation(api: ConversationAPI, conversation_id: str):
+    """Select a conversation and restore its messages from storage."""
+
+    st.session_state[CURRENT_CONVERSATION_KEY] = conversation_id
+    st.session_state[MESSAGES_KEY] = messages_from_rows(
+        api.messages(conversation_id)
+    )
+
+
+def refresh_conversation_list(api: ConversationAPI):
+    st.session_state[CONVERSATIONS_KEY] = api.list()
+
+
+def start_new_conversation(api: ConversationAPI):
+    """Create an empty conversation; degrade to a session-only chat on failure."""
+
+    created = api.create()
+
+    if created:
+        load_conversation(api, created["id"])
+    else:
+        new_chat(st.session_state)
+        st.session_state[CURRENT_CONVERSATION_KEY] = None
+
+    refresh_conversation_list(api)
+
+
+def bootstrap_conversations(api: ConversationAPI):
+    """On login/refresh: list conversations and restore the most recent one."""
+
+    conversations = api.list()
+
+    st.session_state[CONVERSATIONS_KEY] = conversations
+
+    if conversations:
+        load_conversation(api, conversations[0]["id"])
+    else:
+        st.session_state[CURRENT_CONVERSATION_KEY] = None
+        new_chat(st.session_state)
+
+
 init_chat_state(st.session_state)
 
 if TOKEN_KEY not in st.session_state:
     render_auth_screen()
     st.stop()
+
+
+conversation_api = ConversationAPI(API_BASE_URL, st.session_state[TOKEN_KEY])
+
+# UI state only. History itself always comes from the database, so a page
+# refresh re-reads it rather than replaying session state.
+if CURRENT_CONVERSATION_KEY not in st.session_state:
+    bootstrap_conversations(conversation_api)
 
 
 # ==================================================
@@ -340,8 +421,53 @@ with st.sidebar:
     st.markdown("### 🔎 Support Copilot")
 
     if st.button("+ New Chat", use_container_width=True):
-        new_chat(st.session_state)
+        start_new_conversation(conversation_api)
         st.rerun()
+
+    st.divider()
+
+    st.markdown("**💬 Conversations**")
+
+    conversations = st.session_state.get(CONVERSATIONS_KEY) or []
+    current_conversation_id = st.session_state.get(CURRENT_CONVERSATION_KEY)
+
+    if not conversations:
+        st.caption("No conversations yet — ask a question to start one.")
+    else:
+        for conversation in conversations:
+            conversation_id = conversation.get("id")
+
+            if not conversation_id:
+                continue
+
+            label = conversation_title(conversation)
+
+            if conversation_id == current_conversation_id:
+                label = f"▶ {label}"
+
+            select_column, delete_column = st.columns([0.82, 0.18])
+
+            if select_column.button(
+                label,
+                key=f"conversation-{conversation_id}",
+                use_container_width=True,
+            ):
+                load_conversation(conversation_api, conversation_id)
+                st.rerun()
+
+            if delete_column.button(
+                "🗑",
+                key=f"delete-{conversation_id}",
+                help="Delete this conversation",
+            ):
+                if conversation_api.delete(conversation_id) and (
+                    conversation_id == current_conversation_id
+                ):
+                    st.session_state[CURRENT_CONVERSATION_KEY] = None
+                    new_chat(st.session_state)
+
+                refresh_conversation_list(conversation_api)
+                st.rerun()
 
     st.divider()
 
@@ -432,6 +558,30 @@ query = st.chat_input("Ask a question about AcmeCloud...")
 
 if query:
 
+    # One correlation id per submission: stored on both turns and attached to
+    # the RAG trace, so a stored message maps to exactly one LangSmith run.
+    query_id = uuid.uuid4().hex
+
+    conversation_id = st.session_state.get(CURRENT_CONVERSATION_KEY)
+
+    # A question always belongs to a conversation.
+    if not conversation_id:
+        created = conversation_api.create()
+
+        if created:
+            conversation_id = created["id"]
+            st.session_state[CURRENT_CONVERSATION_KEY] = conversation_id
+
+    # Persist the question before running RAG: if retrieval fails, the user's
+    # message is still stored (and never replaced by an invented answer).
+    if conversation_id:
+        conversation_api.add_message(
+            conversation_id,
+            role="user",
+            content=query,
+            query_id=query_id,
+        )
+
     add_user_message(st.session_state, query)
 
     with st.chat_message("user"):
@@ -444,7 +594,7 @@ if query:
             expanded=False,
         ) as status:
 
-            data, error = ask_question(query)
+            data, error = ask_question(query, query_id)
 
             if error:
                 status.update(
@@ -461,16 +611,46 @@ if query:
                 )
 
         if error:
-            add_assistant_message(st.session_state, "", error=error)
+            add_assistant_message(
+                st.session_state, "", error=error, query_id=query_id
+            )
             st.error(error)
             st.caption("Your previous answers are still shown above.")
         else:
-            add_assistant_message(
+            answer = data.get("answer", "No answer was returned.")
+            citations = data.get("citations") or []
+
+            message = add_assistant_message(
                 st.session_state,
-                data.get("answer", "No answer was returned."),
+                answer,
                 confidence=data.get("confidence"),
                 answerable=data.get("answerable"),
-                citations=data.get("citations", []),
+                citations=citations,
+                query_id=query_id,
             )
 
-            render_message_body(get_messages(st.session_state)[-1])
+            if conversation_id:
+                stored = conversation_api.add_message(
+                    conversation_id,
+                    role="assistant",
+                    content=answer,
+                    query_id=query_id,
+                    confidence=data.get("confidence"),
+                    answerable=data.get("answerable"),
+                    citations=citations,
+                )
+
+                # A successful answer is never hidden by a storage failure.
+                # The notice rides on the message so it survives the rerun.
+                if stored is None:
+                    message["persistence_error"] = (
+                        "⚠️ The answer is shown, but it could not be saved "
+                        "to your history."
+                    )
+
+            render_message_body(message)
+
+    # Keep the sidebar's titles/order in step with the database.
+    refresh_conversation_list(conversation_api)
+
+    st.rerun()

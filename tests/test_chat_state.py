@@ -15,11 +15,14 @@ from chat_state import (  # noqa: E402
     add_user_message,
     citation_page,
     citation_source_name,
+    conversation_title,
     format_badge,
     format_line,
     format_meta,
     get_messages,
     init_chat_state,
+    message_from_row,
+    messages_from_rows,
     new_chat,
     normalize_answerable,
     normalize_confidence,
@@ -128,3 +131,82 @@ def test_strip_citations_and_source_name():
     assert citation_source_name({}) == "Unknown"
     assert citation_page({"page": 2}) == 2
     assert citation_page({"page": None}) is None
+
+
+# ---------------------------------------------------------------------------
+# Stored rows -> display messages
+# ---------------------------------------------------------------------------
+
+
+def test_assistant_row_keeps_its_stored_metadata():
+    message = message_from_row(
+        {
+            "role": "assistant",
+            "content": "Answer. [manual.pdf_chunk_2]",
+            "confidence": 0.91,
+            "answerable": True,
+            "citations": [
+                {"chunk_id": "manual.pdf_chunk_2", "page": 2}
+            ],
+            "query_id": "abc123",
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    assert message["confidence"] == 0.91
+    assert message["answerable"] is True
+    assert message["citations"] == [
+        {"chunk_id": "manual.pdf_chunk_2", "page": 2}
+    ]
+    assert message["query_id"] == "abc123"
+    assert message["error"] is None
+
+
+def test_user_row_has_no_assistant_metadata():
+    message = message_from_row({"role": "user", "content": "hi"})
+
+    assert message == {
+        "role": "user",
+        "content": "hi",
+        "query_id": None,
+        "created_at": None,
+    }
+
+
+def test_missing_confidence_and_citations_are_tolerated():
+    message = message_from_row(
+        {"role": "assistant", "content": "x", "citations": None}
+    )
+
+    assert message["confidence"] == 0.0
+    assert message["answerable"] is False
+    assert message["citations"] == []
+
+
+def test_citations_survive_a_json_string_column():
+    message = message_from_row(
+        {
+            "role": "assistant",
+            "content": "x",
+            "citations": '[{"chunk_id": "a.md_chunk_1"}]',
+        }
+    )
+
+    assert message["citations"] == [{"chunk_id": "a.md_chunk_1"}]
+
+
+def test_messages_from_rows_preserves_order():
+    messages = messages_from_rows(
+        [
+            {"role": "user", "content": "one"},
+            {"role": "assistant", "content": "two"},
+        ]
+    )
+
+    assert [m["content"] for m in messages] == ["one", "two"]
+
+
+def test_conversation_title_falls_back_when_blank():
+    assert conversation_title({"title": "  Billing  "}) == "Billing"
+    assert conversation_title({"title": "   "}) == "New Chat"
+    assert conversation_title(None) == "New Chat"
