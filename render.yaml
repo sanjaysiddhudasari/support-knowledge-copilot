@@ -12,6 +12,14 @@ services:
         value: 3.12.11
       - key: RETRIEVAL_STRATEGY
         value: hybrid
+      # Observability. Stays off until LANGSMITH_TRACING is set to "true" and
+      # LANGSMITH_API_KEY is provided; the app runs normally either way.
+      - key: LANGSMITH_TRACING
+        value: "false"
+      - key: LANGSMITH_PROJECT
+        value: support-knowledge-copilot
+      - key: LANGSMITH_API_KEY
+        sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY
