@@ -160,6 +160,8 @@ def test_citation_verifier_sets_file_type_and_page(monkeypatch):
     verifier = verifier_module.CitationVerifier.__new__(
         verifier_module.CitationVerifier
     )
+    # __init__ needs DeepSeek credentials; set the attributes the verifier uses.
+    verifier.model = "test-model"
     monkeypatch.setattr(
         verifier,
         "_verify_claim",
@@ -181,6 +183,8 @@ def test_citation_verifier_tolerates_chunk_without_file_type(monkeypatch):
     verifier = verifier_module.CitationVerifier.__new__(
         verifier_module.CitationVerifier
     )
+    # __init__ needs DeepSeek credentials; set the attributes the verifier uses.
+    verifier.model = "test-model"
     monkeypatch.setattr(
         verifier,
         "_verify_claim",
@@ -209,7 +213,7 @@ def test_query_response_exposes_citation_file_type(monkeypatch):
     from app.main import app
 
     class FakeQA:
-        def answer(self, query, user_access_level="public"):
+        def answer(self, query, user_access_level="public", user_id=None):
             return {
                 "answer": "Answer text.",
                 "answerability": SimpleNamespace(answerable=True),
