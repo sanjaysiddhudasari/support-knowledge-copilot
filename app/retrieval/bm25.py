@@ -17,6 +17,13 @@ class BM25Retriever:
     def build_index(self, chunks):
         self.chunks = chunks
 
+        if not chunks:
+            # ponytail: rank_bm25 divides by corpus size, so an empty corpus
+            # must skip construction. Retrieval then returns nothing instead
+            # of raising - a valid empty state, not an error.
+            self.bm25 = None
+            return
+
         tokenized_chunks = [
             self._tokenize(chunk.text)
             for chunk in chunks
@@ -49,10 +56,11 @@ class BM25Retriever:
 
     def retrieve(self, query: str, top_k: int = 5):
 
-            if self.bm25 is None:
-                raise RuntimeError(
-                    "BM25 index has not been built."
-                )
+            if self.bm25 is None or not self.chunks:
+                # ponytail: no index (never built) or empty corpus - return
+                # no hits rather than raising, so hybrid retrieval degrades
+                # to dense-only instead of failing the query.
+                return []
 
             started = time.perf_counter()
 
