@@ -13,6 +13,7 @@ A RAG-based support knowledge assistant with multi-format document ingestion (Ma
 - **Reranking:** Cross-Encoder is supported for local/evaluation workflows but disabled by default in production to avoid its additional memory footprint
 - **Generation + citation verification:** DeepSeek
 - **Authentication + user profiles:** Supabase Auth (login **and** sign up) + Supabase Postgres `profiles`
+- **Chat history:** Supabase Postgres `conversations` + `messages` — persistent and scoped per authenticated user (see [Persistent conversations](#persistent-conversations))
 - **Access levels:** public, internal, admin
 - **Ingestion:** format-dispatching loaders (`app/ingestion/`) for MD, TXT, PDF, DOCX and HTML with deterministic chunk IDs and incremental indexing
 
@@ -126,19 +127,116 @@ One app, `ui/app.py`:
 - **Auth screen** — `Login` / `Sign Up` tabs. Sign up collects email, password
   and confirmation; the email shape, the 8-character minimum and the match are
   validated by the backend (and cheaply pre-checked in the UI).
-- **Sidebar** — `+ New Chat`, knowledge-base upload (`MD · TXT · PDF · DOCX ·
+- **Sidebar** — `+ New Chat`, the user's previous conversations (newest activity
+  first, each with a delete control), knowledge-base upload (`MD · TXT · PDF · DOCX ·
   HTML`) showing the indexed type after upload, the signed-in user with their
   access level, and `Logout`.
-- **Persistent conversation** — every assistant turn stores its own answer,
-  confidence, answerability and citations in session state. History is rendered
-  from that stored metadata, so an older answer keeps *its* confidence and
+- **Persistent conversation** — history lives in Supabase Postgres (see
+  [Persistent conversations](#persistent-conversations)). Every assistant turn
+  stores its own answer,
+  confidence, answerability and citations as stored records. History is rendered
+  from those records, so an older answer keeps *its* confidence and
   sources after later questions. Nothing is recomputed or borrowed from the
-  latest query. `+ New Chat` clears the conversation without signing out.
+  latest query. `+ New Chat` creates a new stored conversation, and refreshing
+  the page or logging back in restores history.
 - **Sources** — format-aware expandable cards, e.g.
   `manual.pdf · PDF · Page 7 · Verified`.
 - **Loading / errors** — a status line for "Searching documentation…" and
   "Verifying citations…"; a failed query keeps the question and every earlier
   answer on screen.
+
+## Persistent conversations
+
+Chat history is stored in the project's **existing Supabase Postgres database**.
+No second datastore, cache or citation table is introduced.
+
+### Schema
+
+`migrations/001_conversations.sql` creates:
+
+| Table | Columns |
+|---|---|
+| `conversations` | `id`, `user_id`, `title`, `created_at`, `updated_at` |
+| `messages` | `id`, `conversation_id`, `role` (`user`/`assistant`), `content`, `query_id`, `confidence`, `answerable`, `citations` (jsonb), `created_at` |
+
+Plus:
+
+- `(user_id, updated_at desc)` for the sidebar listing,
+- `(conversation_id, created_at)` for chronological reads,
+- a partial unique index on `(conversation_id, query_id, role)` so a Streamlit
+  rerun can never double-write a turn,
+- a `before update` trigger that restamps `conversations.updated_at` with the
+  server clock, so "newest activity first" stays correct even for two writes in
+  the same millisecond,
+- row-level-security policies on both tables.
+
+Messages are removed with their conversation via `on delete cascade`.
+
+### Ownership
+
+RLS is defence in depth: the FastAPI backend talks to Postgres with the
+service-role key, which bypasses RLS. Ownership is therefore enforced in code —
+`ConversationService` scopes every read and write to the authenticated user, and
+a conversation owned by somebody else is reported as **404 / not found** rather
+than "forbidden", so an id cannot be probed for existence.
+
+### Applying the migration
+
+```bash
+# Supabase SQL editor: paste migrations/001_conversations.sql and run it once,
+# or from a shell:
+psql "$SUPABASE_DB_URL" -f migrations/001_conversations.sql
+```
+
+The migration is additive and does not touch `profiles`. No new environment
+variables are needed — it reuses the existing `SUPABASE_*` configuration.
+
+### API
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/conversations` | create a conversation |
+| `GET` | `/api/conversations` | list the caller's conversations, newest activity first |
+| `GET` | `/api/conversations/{id}` | fetch one conversation |
+| `PATCH` | `/api/conversations/{id}` | rename a conversation |
+| `DELETE` | `/api/conversations/{id}` | delete a conversation and its messages |
+| `GET` | `/api/conversations/{id}/messages` | chronological messages |
+| `POST` | `/api/conversations/{id}/messages` | append one turn |
+
+Every endpoint requires a bearer token and is scoped to that user.
+
+### What is stored per turn
+
+- **user turn** — `role`, `content`, `query_id`
+- **assistant turn** — the final answer, `confidence`, `answerable`, the verified
+  citations as JSONB, and the same `query_id`
+
+Stored turns are immutable. Restoring history never recomputes a confidence,
+never re-runs citation verification and never calls the LLM.
+
+### `query_id` and LangSmith
+
+One `query_id` is generated per submission and used three ways: stored on the
+user message, stored on the assistant message, and attached to the `RAG Query`
+span metadata in LangSmith. A stored turn therefore maps to exactly one trace.
+No conversation content is sent to LangSmith — identifiers only.
+
+### Titles
+
+Derived from the first user message: whitespace-normalized, truncated to about
+60 characters with a trailing `...`. No LLM call is used for titles.
+
+### Behaviour when storage is unavailable
+
+The UI degrades instead of crashing:
+
+- if a conversation cannot be created, the chat still works for the session,
+- if RAG fails, the stored question is kept and an error is shown — no answer is
+  invented,
+- if the answer cannot be saved, it is still displayed, with a note.
+
+Uploaded/indexed content, retrieval, ACLs and the list endpoints are unaffected
+by this feature.
 
 ## Observability (LangSmith)
 
@@ -280,6 +378,13 @@ and from the `API_BASE_URL` environment variable otherwise, so a missing
 secrets file no longer prevents local runs.
 
 The existing BM25 index is loaded from `data/bm25/index.joblib`. Rebuild it with the existing indexing workflow when the corpus changes.
+
+Apply the conversation-history migration once (see
+[Persistent conversations](#persistent-conversations)):
+
+```bash
+psql "$SUPABASE_DB_URL" -f migrations/001_conversations.sql
+```
 
 ## Docker
 
