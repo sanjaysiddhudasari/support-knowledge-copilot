@@ -1,6 +1,7 @@
+import time
 from collections import defaultdict
 
-from app.models.retrieval import RetrievalResult
+from app.observability.tracing import describe_result, span
 
 
 class HybridRetriever:
@@ -21,22 +22,60 @@ class HybridRetriever:
         rrf_k: int = 60,
     ):
 
-        dense_results = self.dense_retriever.retrieve(
-            query,
-            top_k=candidate_k,
-        )
+        started = time.perf_counter()
 
-        bm25_results = self.bm25_retriever.retrieve(
-            query,
-            top_k=candidate_k,
-        )
+        with span(
+            "Hybrid Fusion",
+            run_type="chain",
+            tags=["rag", "hybrid"],
+            metadata={
+                "retrieval_type": "hybrid",
+                "fusion": "rrf",
+                "rrf_k": rrf_k,
+                "top_k": top_k,
+                "candidate_k": candidate_k,
+            },
+            inputs={"query": query},
+        ) as run:
 
-        return self._rrf(
-            dense_results,
-            bm25_results,
-            top_k,
-            rrf_k,
-        )
+            dense_results = self.dense_retriever.retrieve(
+                query,
+                top_k=candidate_k,
+            )
+
+            bm25_results = self.bm25_retriever.retrieve(
+                query,
+                top_k=candidate_k,
+            )
+
+            fused = self._rrf(
+                dense_results,
+                bm25_results,
+                top_k,
+                rrf_k,
+            )
+
+            run.add_metadata(
+                {
+                    "dense_count": len(dense_results),
+                    "bm25_count": len(bm25_results),
+                    "fused_count": len(fused),
+                    "latency_ms": round(
+                        (time.perf_counter() - started) * 1000, 2
+                    ),
+                }
+            )
+
+            run.add_outputs(
+                {
+                    "fused": [
+                        describe_result(result)
+                        for result in fused
+                    ]
+                }
+            )
+
+            return fused
 
     def _rrf(
         self,

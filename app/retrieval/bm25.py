@@ -1,9 +1,11 @@
 import re
+import time
 from pathlib import Path
 import joblib
 
 from rank_bm25 import BM25Okapi
 from app.models.retrieval import RetrievalResult
+from app.observability.tracing import describe_result, span
 
 
 class BM25Retriever:
@@ -43,7 +45,7 @@ class BM25Retriever:
          self.bm25=data["bm25"]
          self.chunks=data["chunks"]
 
-         
+
 
     def retrieve(self, query: str, top_k: int = 5):
 
@@ -52,25 +54,59 @@ class BM25Retriever:
                     "BM25 index has not been built."
                 )
 
-            query_tokens = self._tokenize(query)
+            started = time.perf_counter()
 
-            scores = self.bm25.get_scores(query_tokens)
+            with span(
+                "BM25 Retrieval",
+                run_type="retriever",
+                tags=["rag", "bm25"],
+                metadata={
+                    "retrieval_type": "bm25",
+                    "top_k": top_k,
+                    "indexed_chunks": len(self.chunks),
+                },
+                inputs={"query": query},
+            ) as run:
 
-            ranked_indices = sorted(
-                range(len(scores)),
-                key=lambda i: scores[i],
-                reverse=True,
-            )[:top_k]
+                query_tokens = self._tokenize(query)
 
-            return [
-                RetrievalResult(
-                    chunk=self.chunks[i],
-                    score=float(scores[i]),
-                    rank=rank,
-                    source="bm25",
+                scores = self.bm25.get_scores(query_tokens)
+
+                ranked_indices = sorted(
+                    range(len(scores)),
+                    key=lambda i: scores[i],
+                    reverse=True,
+                )[:top_k]
+
+                results = [
+                    RetrievalResult(
+                        chunk=self.chunks[i],
+                        score=float(scores[i]),
+                        rank=rank,
+                        source="bm25",
+                    )
+                    for rank, i in enumerate(ranked_indices, start=1)
+                ]
+
+                run.add_metadata(
+                    {
+                        "result_count": len(results),
+                        "latency_ms": round(
+                            (time.perf_counter() - started) * 1000, 2
+                        ),
+                    }
                 )
-                for rank, i in enumerate(ranked_indices, start=1)
-            ]
+
+                run.add_outputs(
+                    {
+                        "retrieved": [
+                            describe_result(result)
+                            for result in results
+                        ]
+                    }
+                )
+
+                return results
 
     @staticmethod
     def _tokenize(text: str) -> list[str]:
