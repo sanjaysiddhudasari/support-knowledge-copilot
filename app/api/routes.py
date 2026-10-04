@@ -39,6 +39,7 @@ def query(
     result = get_qa_service().answer(
         query=request.query,
         user_access_level=current_user.access_level,
+        user_id=current_user.id,
     )
 
     return {

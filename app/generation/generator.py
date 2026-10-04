@@ -1,4 +1,5 @@
 import os
+import time
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -8,6 +9,7 @@ from app.generation.citation_parser import parse_citations
 from app.evaluation.citation_utils import (
     deduplicate_citations,
 )
+from app.observability.tracing import span, usage_metadata
 
 class AnswerGenerator:
 
@@ -37,23 +39,41 @@ class AnswerGenerator:
         results,
     ) -> GeneratedAnswer:
 
-        context_parts = []
+        context_started = time.perf_counter()
 
-        for result in results:
+        with span(
+            "Context Preparation",
+            run_type="chain",
+            tags=["rag", "context"],
+            metadata={"chunk_count": len(results)},
+        ) as preparation:
 
-            chunk = result["chunk"]
+            context_parts = []
 
-            context_parts.append(
-                f"""
+            for result in results:
+
+                chunk = result["chunk"]
+
+                context_parts.append(
+                    f"""
 [CHUNK_ID: {chunk.chunk_ids}]
 [SECTION: {chunk.section}]
 [SOURCE: {chunk.source}]
 
 {chunk.text}
 """
-            )
+                )
 
-        context = "\n\n".join(context_parts)
+            context = "\n\n".join(context_parts)
+
+            preparation.add_metadata(
+                {
+                    "context_chars": len(context),
+                    "latency_ms": round(
+                        (time.perf_counter() - context_started) * 1000, 2
+                    ),
+                }
+            )
 
         prompt = f"""
 You are a support knowledge assistant.
@@ -120,16 +140,56 @@ You can reset your password from Account Settings.
 [password-policy.md_chunk_2]
 """
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        generation_started = time.perf_counter()
 
-        answer = response.choices[0].message.content or ""
-        citations=parse_citations(answer)
-        citations=deduplicate_citations(citations=citations)
+        with span(
+            "Generation",
+            run_type="llm",
+            tags=["rag", "generation"],
+            metadata={
+                "model": self.model,
+                "provider": "deepseek",
+                "chunk_count": len(results),
+            },
+            inputs={"query": query, "context_chars": len(context)},
+        ) as run:
 
-        return GeneratedAnswer(
-            answer=answer,
-            citations=citations,
-        )
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+            )
+
+            answer = response.choices[0].message.content or ""
+
+            # Inputs/outputs of the model are not logged; only sizes, counts
+            # and provider-reported token usage.
+            generation_metadata = {
+                "latency_ms": round(
+                    (time.perf_counter() - generation_started) * 1000, 2
+                ),
+            }
+
+            generation_metadata.update(
+                usage_metadata(getattr(response, "usage", None))
+            )
+
+            run.add_metadata(generation_metadata)
+
+            citations=parse_citations(answer)
+            citations=deduplicate_citations(citations=citations)
+
+            run.add_outputs(
+                {
+                    "answer_chars": len(answer),
+                    "citation_count": len(citations),
+                    "citation_chunk_ids": [
+                        citation.chunk_id
+                        for citation in citations
+                    ],
+                }
+            )
+
+            return GeneratedAnswer(
+                answer=answer,
+                citations=citations,
+            )

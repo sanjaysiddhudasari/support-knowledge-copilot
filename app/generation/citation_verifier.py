@@ -1,10 +1,12 @@
 import json
 import os
+import time
 
 from dotenv import load_dotenv
 from openai import OpenAI
 
 from app.models.answer import Citation
+from app.observability.tracing import span
 
 
 class CitationVerifier:
@@ -43,76 +45,135 @@ class CitationVerifier:
         results,
     ) -> list[Citation]:
 
-        chunks_by_id = {}
+        started = time.perf_counter()
 
-        for result in results:
-            chunk = self._get_chunk(result)
-            if chunk is not None:
-                chunks_by_id[chunk.chunk_ids] = chunk
+        with span(
+            "Citation Verification",
+            run_type="chain",
+            tags=["rag", "citations"],
+            metadata={
+                "model": self.model,
+                "citation_count": len(citations),
+                "evidence_count": len(results),
+            },
+        ) as run:
 
-        verified_citations = []
+            chunks_by_id = {}
 
-        for citation in citations:
+            for result in results:
+                chunk = self._get_chunk(result)
+                if chunk is not None:
+                    chunks_by_id[chunk.chunk_ids] = chunk
 
-            chunk = chunks_by_id.get(
-                citation.chunk_id
-            )
+            verified_citations = []
 
-            if chunk is None:
+            resolved_count = 0
 
-                verified_citations.append(
-                    citation.model_copy(
-                        update={
-                            "supported": False,
-                            "explanation": (
-                                "The cited chunk was not "
-                                "found in the retrieved evidence."
-                            ),
-                        }
-                    )
+            for citation in citations:
+
+                chunk = chunks_by_id.get(
+                    citation.chunk_id
                 )
 
-                continue
+                if chunk is None:
 
-            citation_metadata = {
-                "source": chunk.source,
-                "file_type": getattr(chunk, "file_type", None),
-                "page": getattr(chunk, "page", None),
-            }
+                    verified_citations.append(
+                        citation.model_copy(
+                            update={
+                                "supported": False,
+                                "explanation": (
+                                    "The cited chunk was not "
+                                    "found in the retrieved evidence."
+                                ),
+                            }
+                        )
+                    )
 
-            if not citation.claim.strip():
+                    continue
+
+                # The chunk resolved against retrieved evidence.
+                resolved_count += 1
+
+                citation_metadata = {
+                    "source": chunk.source,
+                    "file_type": getattr(chunk, "file_type", None),
+                    "page": getattr(chunk, "page", None),
+                }
+
+                if not citation.claim.strip():
+
+                    verified_citations.append(
+                        citation.model_copy(
+                            update={
+                                "supported": False,
+                                "explanation": (
+                                    "The citation did not have an "
+                                    "associated claim."
+                                ),
+                                **citation_metadata,
+                            }
+                        )
+                    )
+
+                    continue
+
+                verdict = self._verify_claim(
+                    claim=citation.claim,
+                    evidence=chunk.text,
+                )
 
                 verified_citations.append(
                     citation.model_copy(
                         update={
-                            "supported": False,
-                            "explanation": (
-                                "The citation did not have an "
-                                "associated claim."
-                            ),
+                            "supported": verdict["supported"],
+                            "explanation": verdict["explanation"],
                             **citation_metadata,
                         }
                     )
                 )
 
-                continue
+            total = len(verified_citations)
 
-            verdict = self._verify_claim(
-                claim=citation.claim,
-                evidence=chunk.text,
+            supported_count = sum(
+                1
+                for citation in verified_citations
+                if citation.supported
             )
 
-            verified_citations.append(
-                citation.model_copy(
-                    update={
-                        "supported": verdict["supported"],
-                        "explanation": verdict["explanation"],
-                        **citation_metadata,
-                    }
-                )
+            run.add_metadata(
+                {
+                    "citation_count": total,
+                    "resolved_count": resolved_count,
+                    "unresolved_count": total - resolved_count,
+                    "supported_count": supported_count,
+                    "unsupported_count": total - supported_count,
+                    # Share of citations that resolved to retrieved evidence.
+                    "citation_validity": (
+                        round(resolved_count / total, 4) if total else 0.0
+                    ),
+                    # Share of citations the verifier marked as supported.
+                    "citation_support": (
+                        round(supported_count / total, 4) if total else 0.0
+                    ),
+                    "latency_ms": round(
+                        (time.perf_counter() - started) * 1000, 2
+                    ),
+                }
             )
 
-        return verified_citations
+            run.add_outputs(
+                {
+                    "citations": [
+                        {
+                            "chunk_id": citation.chunk_id,
+                            "supported": citation.supported,
+                        }
+                        for citation in verified_citations
+                    ]
+                }
+            )
+
+            return verified_citations
 
     def _verify_claim(
         self,

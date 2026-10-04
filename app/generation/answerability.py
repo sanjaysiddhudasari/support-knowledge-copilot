@@ -1,10 +1,12 @@
 import json
 import os
+import time
 
 from dotenv import load_dotenv
 from openai import OpenAI
 
 from app.models.answer import Answerability
+from app.observability.tracing import span, usage_metadata
 
 
 class AnswerabilityDetector:
@@ -79,35 +81,63 @@ Return ONLY valid JSON:
 }}
 """
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        started = time.perf_counter()
 
-        raw_output = (response.choices[0].message.content or "").strip()
+        with span(
+            "Answerability Check",
+            run_type="llm",
+            tags=["rag", "answerability"],
+            metadata={
+                "model": self.model,
+                "chunk_count": len(results),
+            },
+            inputs={"query": query},
+        ) as run:
 
-        try:
-            result = json.loads(raw_output)
-            answerable = result["answerable"]
-            explanation = result["explanation"]
-
-            if not isinstance(answerable, bool):
-                raise TypeError("'answerable' must be a boolean")
-
-            return Answerability(
-                answerable=answerable,
-                explanation=str(explanation),
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
             )
 
-        except (
-            json.JSONDecodeError,
-            KeyError,
-            TypeError,
-        ):
+            raw_output = (response.choices[0].message.content or "").strip()
 
-            return Answerability(
-                answerable=False,
-                explanation=(
-                    "Answerability detection failed."
+            try:
+                result = json.loads(raw_output)
+                answerable = result["answerable"]
+                explanation = result["explanation"]
+
+                if not isinstance(answerable, bool):
+                    raise TypeError("'answerable' must be a boolean")
+
+                answerability = Answerability(
+                    answerable=answerable,
+                    explanation=str(explanation),
+                )
+
+            except (
+                json.JSONDecodeError,
+                KeyError,
+                TypeError,
+            ):
+
+                answerability = Answerability(
+                    answerable=False,
+                    explanation=(
+                        "Answerability detection failed."
+                    ),
+                )
+
+            answerability_metadata = {
+                "answerable": answerability.answerable,
+                "latency_ms": round(
+                    (time.perf_counter() - started) * 1000, 2
                 ),
+            }
+
+            answerability_metadata.update(
+                usage_metadata(getattr(response, "usage", None))
             )
+
+            run.add_metadata(answerability_metadata)
+
+            return answerability
