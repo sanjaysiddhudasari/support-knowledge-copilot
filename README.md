@@ -140,6 +140,103 @@ One app, `ui/app.py`:
   "Verifying citations…"; a failed query keeps the question and every earlier
   answer on screen.
 
+## Observability (LangSmith)
+
+LangSmith tracing wraps the existing RAG pipeline. It is an observability layer
+only: retrieval, fusion, generation and citation logic are unchanged, and no
+LangChain/LangGraph code is involved (`langsmith` is used directly). See
+`app/observability/tracing.py`.
+
+### Enabling
+
+Tracing is **off unless it is both requested and configured**:
+
+```bash
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=...                              # never commit this
+LANGSMITH_PROJECT=support-knowledge-copilot
+# LANGSMITH_ENDPOINT=https://api.smith.langchain.com   # self-hosted only
+```
+
+- **Local development:** leave the variables unset — every span becomes a no-op
+  and the app behaves exactly as before.
+- **Production:** set the variables on the Render service. Nothing else
+  changes; if the key is missing, tracing simply stays off.
+- **Disabling:** unset `LANGSMITH_TRACING` (or the key) and redeploy. No code
+  change is needed.
+
+### Fail-safe behaviour
+
+Tracing can never fail a request. If the SDK is missing, tracing is off, the
+client cannot be constructed, a run cannot be updated, or LangSmith is
+unreachable, the span degrades to a no-op and the RAG request completes
+normally. Errors raised *by the tracer* are swallowed; errors raised by the
+application always propagate.
+
+### Trace structure
+
+One trace per user query, with a child span per meaningful stage:
+
+```text
+RAG Query                     app/services/qa_service.py
+├── Hybrid Fusion             app/retrieval/hybrid.py
+│   ├── Dense Retrieval       app/retrieval/retriever.py
+│   └── BM25 Retrieval        app/retrieval/bm25.py
+├── Answerability Check       app/generation/answerability.py
+├── Context Preparation       app/generation/generator.py
+├── Generation                app/generation/generator.py
+└── Citation Verification     app/generation/citation_verifier.py
+```
+
+- With `RETRIEVAL_STRATEGY=dense` or `bm25` the corresponding retriever span is
+  the retrieval child instead of `Hybrid Fusion`.
+- `Reranker` appears only when reranking actually runs (`hybrid_rerank`), which
+  is not the production default.
+- There is no separate `Query Processing` span: no work happens between the API
+  entry point and retrieval beyond argument handling.
+
+### Recorded metadata
+
+| Span | Metadata |
+|---|---|
+| RAG Query | `user_id`, `access_level`, `retrieval_strategy`, `confidence`, `answerable`, `citation_count`, `supported_citations`, `latency_ms`; tags `rag`, the strategy, and `answerable`/`unanswerable` |
+| Dense Retrieval | `retrieval_type`, `top_k`, `result_count`, `latency_ms`, `collection_name`, `embedding_model` |
+| BM25 Retrieval | `retrieval_type`, `top_k`, `result_count`, `indexed_chunks`, `latency_ms` |
+| Hybrid Fusion | `retrieval_type`, `fusion=rrf`, `rrf_k`, `top_k`, `candidate_k`, `dense_count`, `bm25_count`, `fused_count`, `latency_ms` |
+| Reranker | `reranker_enabled`, `reranker_model`, `input_count`, `output_count`, `latency_ms` |
+| Answerability Check | `model`, `chunk_count`, `answerable`, `latency_ms`, token usage when reported |
+| Context Preparation | `chunk_count`, `context_chars`, `latency_ms` |
+| Generation | `model`, `provider`, `chunk_count`, `latency_ms`, token usage when reported |
+| Citation Verification | `model`, `citation_count`, `resolved_count`, `unresolved_count`, `supported_count`, `unsupported_count`, `citation_validity`, `citation_support`, `latency_ms` |
+
+Retrieved chunks are attached as **identifiers only** — `chunk_id`, `source`,
+`section`, `file_type`, `page`, `document_type`, `version`, `access_level`,
+`retrieval_score`, `retrieval_method` — never their text.
+
+`citation_validity` is the share of citations that resolved to retrieved
+evidence; `citation_support` is the share the verifier marked as supported.
+Nothing is recomputed for tracing: confidence, answerability and citations are
+the values the pipeline already produced.
+
+Only metadata the application actually has is recorded — for example
+`temperature` and `max_tokens` are not sent because the clients do not set them,
+and token counts appear only when DeepSeek reports usage.
+
+### Privacy
+
+Never sent to LangSmith: Supabase JWTs, refresh tokens, the service-role key,
+`DEEPSEEK_API_KEY`, `LANGSMITH_API_KEY`, passwords, or authorization headers.
+Document bodies, prompts and generated answers are not traced either — only
+sizes, counts, identifiers and scores. The user's **query text** is traced,
+since a trace without it is not useful for debugging; disable tracing if that
+is not acceptable.
+
+### Errors
+
+A failing stage appears as a failed span in LangSmith with the exception
+attached, so Qdrant, BM25, DeepSeek and verifier failures are visible without
+any additional machinery.
+
 ## Local setup
 
 Use Python 3.12.
