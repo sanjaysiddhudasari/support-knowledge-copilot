@@ -49,10 +49,78 @@ document → loader (format dispatch) → LoadedDocument → chunk_document() �
 
 ### Upload support
 
-The admin upload endpoint (`POST /api/documents`) and the Streamlit sidebar
-accept MD, TXT, PDF, DOCX and HTML. The backend validates the extension
-independently of the UI, enforces a 20 MB size limit, and rejects unparsable
-files before indexing. Uploaded content is never executed.
+The admin upload endpoint (`POST /api/documents/upload`; `POST /api/documents`
+remains as an alias) and the Streamlit sidebar accept MD, TXT, PDF, DOCX and
+HTML. The backend validates the extension independently of the UI, enforces a
+20 MB size limit, and rejects unparsable files before anything is stored.
+Uploaded content is never executed.
+
+## Persistent document storage (Supabase)
+
+Original documents live in **Supabase Storage** (bucket `documents`), metadata
+and ownership in **Supabase Postgres** (`documents` table,
+`migrations/002_documents.sql`). Render's filesystem is temporary/cache only.
+
+```text
+Supabase Storage    -> original documents (source of truth)
+Supabase Postgres   -> metadata / ownership / versions / status
+Qdrant Cloud        -> dense vectors + payloads (derived)
+BM25 (index.joblib) -> rebuildable lexical index (derived)
+Render filesystem   -> temp workspace during indexing only
+```
+
+### Upload / update / delete flows
+
+- **Upload:** validate extension + size -> parse with the real loader ->
+  generate `document_id` -> upload bytes to Storage (`{user_id}/{document_id}/
+  {sanitized_filename}`) -> create Postgres row -> download via the service and
+  run the existing loader/chunker -> replace Qdrant chunks -> mark `ready`.
+- **Update (same filename, new content):** new `document_id` + new blob; the
+  manifest version increments and old chunks are deleted from Qdrant before the
+  new ones are upserted (deterministic chunk IDs are unchanged).
+- **Delete:** Postgres row first, then the Storage blob (best-effort cleanup),
+  then the document's Qdrant chunks; BM25 rebuilds from what remains.
+- Partial failures: a DB failure after a Storage upload removes the blob; an
+  indexing failure marks the document `failed` while the original stays stored.
+
+### Document metadata & API
+
+`documents` rows carry `id`, `user_id`, `filename`, `storage_path`, `file_type`,
+`size_bytes`, `content_hash`, `version`, `access_level`, `status`
+(pending/indexing/ready/failed), timestamps. Endpoints (bearer-authenticated,
+per-user): `POST /api/documents/upload`, `GET /api/documents`,
+`GET/DELETE /api/documents/{id}`, `POST /api/documents/reindex` (admin-only;
+rebuilds BM25 from durable documents).
+
+RLS on the table mirrors the app-level ownership checks; the backend uses the
+service-role key, which bypasses RLS, so ownership is verified in
+`DocumentService` for every read/write. Filenames are sanitized (no traversal,
+restricted character set); raw contents are never logged or traced.
+
+### BM25 durability
+
+`data/bm25/index.joblib` is **derived cache state**: safe to delete and rebuild.
+Rebuild = Postgres list -> Storage download (temp) -> existing loaders/chunkers
+-> rank_bm25 -> save. Build state (per-document hash/version snapshot) is stored
+under the `bm25` key of the existing manifest — no second manifest. Missing or
+hash-mismatched state is detected via `rebuild.is_stale()`; an empty corpus is a
+valid empty state (BM25 returns no hits instead of erroring, and hybrid falls
+back to dense-only).
+
+### Existing-data migration (one-time)
+
+For documents currently living only in `data/raw/` on Render: upload each file
+through the normal upload endpoint (it stores the blob, creates metadata,
+indexes and reconciles Qdrant chunks by the same deterministic IDs), then run
+`POST /api/documents/reindex` to rebuild BM25 from Storage. Do not hand-copy
+files into `data/raw/` on the server — that path is no longer the source of
+truth.
+
+### Environment variables
+
+`SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_KEY` (existing), plus optional
+`SUPABASE_STORAGE_BUCKET` (defaults to `documents`). Create the bucket in the
+Supabase dashboard (private). The service-role key never reaches Streamlit.
 
 ### Limitations
 

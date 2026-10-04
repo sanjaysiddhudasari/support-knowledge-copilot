@@ -95,6 +95,7 @@ API_BASE_URL = (
 
 QUERY_URL = f"{API_BASE_URL}/api/query"
 UPLOAD_URL = f"{API_BASE_URL}/api/documents"
+DOCS_LIST_URL = f"{API_BASE_URL}/api/documents"
 LOGIN_URL = f"{API_BASE_URL}/api/auth/login"
 SIGNUP_URL = f"{API_BASE_URL}/api/auth/signup"
 ME_URL = f"{API_BASE_URL}/api/me"
@@ -525,6 +526,70 @@ with st.sidebar:
                     st.error(f"Upload failed: {error}")
 
     st.caption(f"Supported: {SUPPORTED_FORMATS}")
+
+    st.divider()
+
+    st.markdown("**📁 My Documents**")
+
+    try:
+        documents_response = requests.get(
+            DOCS_LIST_URL,
+            headers={
+                "Authorization": f"Bearer {st.session_state[TOKEN_KEY]}"
+            },
+            timeout=30,
+        )
+        documents = (
+            documents_response.json()
+            if documents_response.status_code == 200
+            else []
+        )
+    except requests.RequestException:
+        documents = []
+
+    if not documents:
+        st.caption("No documents yet.")
+    else:
+        for document in documents:
+            document_id = document.get("id")
+
+            if not document_id:
+                continue
+
+            label = (
+                f"{format_badge(document.get('file_type'))} · "
+                f"{document.get('filename', '?')}"
+            )
+
+            row_columns = st.columns([0.8, 0.2])
+
+            with row_columns[0]:
+                st.caption(
+                    f"{label}\n\nv{document.get('version', '?')} · "
+                    f"{(document.get('size_bytes') or 0) // 1024} KB · "
+                    f"{document.get('status', '?')}"
+                )
+
+            with row_columns[1]:
+                if st.button(
+                    "🗑",
+                    key=f"delete-document-{document_id}",
+                    help="Delete this document",
+                ):
+                    try:
+                        delete_response = requests.delete(
+                            f"{DOCS_LIST_URL}/{document_id}",
+                            headers={
+                                "Authorization": (
+                                    f"Bearer {st.session_state[TOKEN_KEY]}"
+                                )
+                            },
+                            timeout=30,
+                        )
+                        delete_response.raise_for_status()
+                        st.rerun()
+                    except requests.RequestException as error:
+                        st.error(f"Delete failed: {error}")
 
     st.divider()
 
