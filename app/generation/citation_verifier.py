@@ -76,6 +76,7 @@ class CitationVerifier:
 
             citation_metadata = {
                 "source": chunk.source,
+                "file_type": getattr(chunk, "file_type", None),
                 "page": getattr(chunk, "page", None),
             }
 

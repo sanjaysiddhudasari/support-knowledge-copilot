@@ -10,3 +10,10 @@ class User(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+    # Optional: validated when the client sends it (the UI collects it).
+    confirm_password: str | None = None

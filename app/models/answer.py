@@ -7,6 +7,7 @@ class Citation(BaseModel):
     supported: bool = False
     explanation: str = ""
     source: str | None = None
+    file_type: str | None = None
     page: int | None = None
 
 

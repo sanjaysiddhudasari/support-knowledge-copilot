@@ -288,6 +288,22 @@ def test_get_loader_dispatch():
     assert get_loader("a.HTM").file_type == FILE_TYPE_HTML
 
 
+@pytest.mark.parametrize(
+    "filename,expected",
+    [
+        ("a.md", "markdown"),
+        ("a.txt", "text"),
+        ("a.pdf", "pdf"),
+        ("a.docx", "docx"),
+        ("a.html", "html"),
+        ("a.htm", "html"),
+        ("a.HTM", "html"),
+    ],
+)
+def test_extension_maps_to_normalized_file_type(filename, expected):
+    assert get_loader(filename).file_type == expected
+
+
 def test_missing_file_raises():
     with pytest.raises(FileNotFoundError):
         load_document("data/raw/does-not-exist.md")

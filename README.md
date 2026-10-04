@@ -4,7 +4,7 @@ A RAG-based support knowledge assistant with multi-format document ingestion (Ma
 
 ## Architecture
 
-- **Frontend:** Streamlit
+- **Frontend:** Streamlit (chat UI with persistent per-message confidence/citations, sidebar knowledge base, format-aware source cards)
 - **API:** FastAPI
 - **Vector store:** Qdrant Cloud
 - **Deployed embeddings:** Qdrant Cloud Inference using `sentence-transformers/all-MiniLM-L6-v2` (384 dimensions)
@@ -12,7 +12,7 @@ A RAG-based support knowledge assistant with multi-format document ingestion (Ma
 - **Hybrid retrieval:** Reciprocal Rank Fusion (RRF), used as the production default
 - **Reranking:** Cross-Encoder is supported for local/evaluation workflows but disabled by default in production to avoid its additional memory footprint
 - **Generation + citation verification:** DeepSeek
-- **Authentication + user profiles:** Supabase Auth + Supabase Postgres
+- **Authentication + user profiles:** Supabase Auth (login **and** sign up) + Supabase Postgres `profiles`
 - **Access levels:** public, internal, admin
 - **Ingestion:** format-dispatching loaders (`app/ingestion/`) for MD, TXT, PDF, DOCX and HTML with deterministic chunk IDs and incremental indexing
 
@@ -64,6 +64,82 @@ files before indexing. Uploaded content is never executed.
 - XLSX, PPTX, CSV and EPUB are not currently supported.
 - No LangChain / LlamaIndex / Unstructured; ingestion stays small and explicit.
 
+## Citations and document type
+
+Every citation carries the format of the document it came from, so the UI never
+has to re-detect anything:
+
+```json
+{
+  "chunk_id": "manual.pdf_chunk_2",
+  "claim": "...",
+  "supported": true,
+  "explanation": "...",
+  "source": "manual.pdf",
+  "file_type": "pdf",
+  "page": 2
+}
+```
+
+`file_type` is the normalized value produced by the loader (`markdown`, `text`,
+`pdf`, `docx`, `html`). It is **not** `document_type`, which is semantic
+metadata such as `guide`. `page` is present for PDFs only. The trace is:
+
+```text
+loader → LoadedDocument.file_type → Chunk.file_type → Qdrant payload
+      → retrieval result → Citation → API response → Streamlit UI
+```
+
+Display mapping (single map in `ui/chat_state.py`):
+
+| `file_type` | Display |
+|---|---|
+| `markdown` | 📚 Markdown |
+| `text` | 📝 Text |
+| `pdf` | 📄 PDF |
+| `docx` | 📘 DOCX |
+| `html` | 🌐 HTML |
+
+Anything missing or unknown falls back to `📎 Document`. `POST /api/documents`
+returns the normalized `file_type` of the uploaded file, and old chunks without
+`file_type` remain fully compatible.
+
+## Authentication and access levels
+
+- `POST /api/auth/login` — existing email/password login via Supabase.
+- `POST /api/auth/signup` — creates the Supabase user, then provisions a
+  `profiles` row (`id`, `email`, `access_level`) with the service-role client,
+  which is used by the API only. The write is an idempotent upsert, so a
+  database trigger that already creates profiles is not duplicated.
+- New accounts are always created with `access_level = public`. No code path
+  grants `admin` at signup.
+- Supabase may require email confirmation, so the endpoint answers with either
+  `status: "success"` (session included) or `status: "confirmation_required"`;
+  the UI handles both.
+- The service-role key never reaches Streamlit, which only holds the user's
+  access token.
+
+## Frontend (Streamlit)
+
+One app, `ui/app.py`:
+
+- **Auth screen** — `Login` / `Sign Up` tabs. Sign up collects email, password
+  and confirmation; the email shape, the 8-character minimum and the match are
+  validated by the backend (and cheaply pre-checked in the UI).
+- **Sidebar** — `+ New Chat`, knowledge-base upload (`MD · TXT · PDF · DOCX ·
+  HTML`) showing the indexed type after upload, the signed-in user with their
+  access level, and `Logout`.
+- **Persistent conversation** — every assistant turn stores its own answer,
+  confidence, answerability and citations in session state. History is rendered
+  from that stored metadata, so an older answer keeps *its* confidence and
+  sources after later questions. Nothing is recomputed or borrowed from the
+  latest query. `+ New Chat` clears the conversation without signing out.
+- **Sources** — format-aware expandable cards, e.g.
+  `manual.pdf · PDF · Page 7 · Verified`.
+- **Loading / errors** — a status line for "Searching documentation…" and
+  "Verifying citations…"; a failed query keeps the question and every earlier
+  answer on screen.
+
 ## Local setup
 
 Use Python 3.12.
@@ -101,6 +177,10 @@ set API_BASE_URL=http://127.0.0.1:8000
 # Linux/macOS: export API_BASE_URL=http://127.0.0.1:8000
 streamlit run ui/app.py
 ```
+
+The API base URL is read from Streamlit secrets when a `secrets.toml` exists
+and from the `API_BASE_URL` environment variable otherwise, so a missing
+secrets file no longer prevents local runs.
 
 The existing BM25 index is loaded from `data/bm25/index.joblib`. Rebuild it with the existing indexing workflow when the corpus changes.
 

@@ -1,19 +1,41 @@
+import mimetypes
+import os
+
 import requests
 import streamlit as st
-import re
-import os
-import mimetypes
 
-if "API_BASE_URL" in st.secrets:
-    API_BASE_URL = st.secrets["API_BASE_URL"]
-else:
-    API_BASE_URL = os.getenv(
-        "API_BASE_URL",
-        "http://127.0.0.1:8000",
+try:  # `streamlit run ui/app.py` (script dir on sys.path) vs running from repo root
+    from ui.chat_state import (
+        TOKEN_KEY,
+        USER_KEY,
+        add_assistant_message,
+        add_user_message,
+        citation_page,
+        citation_source_name,
+        format_badge,
+        format_line,
+        format_meta,
+        get_messages,
+        init_chat_state,
+        new_chat,
+        strip_citations,
     )
-
-API_URL = f"{API_BASE_URL}/api/query"
-UPLOAD_URL = f"{API_BASE_URL}/api/documents"
+except ImportError:  # pragma: no cover - depends on how Streamlit is launched
+    from chat_state import (
+        TOKEN_KEY,
+        USER_KEY,
+        add_assistant_message,
+        add_user_message,
+        citation_page,
+        citation_source_name,
+        format_badge,
+        format_line,
+        format_meta,
+        get_messages,
+        init_chat_state,
+        new_chat,
+        strip_citations,
+    )
 
 
 st.set_page_config(
@@ -22,15 +44,106 @@ st.set_page_config(
     layout="wide",
 )
 
+st.markdown(
+    """
+    <style>
+      .block-container { padding-top: 2.2rem; max-width: 1100px; }
+      .app-header h1 { margin-bottom: 0; font-size: 1.9rem; }
+      .app-header p { color: #6b7280; margin-top: .25rem; }
+      .meta-line { font-size: .85rem; color: #6b7280; margin: .35rem 0 .1rem 0; }
+      .user-card { border: 1px solid rgba(128,128,128,.25); border-radius: .6rem;
+                   padding: .6rem .75rem; margin-bottom: .5rem; }
+      .user-card .email { font-weight: 600; word-break: break-all; }
+      .user-card .level { font-size: .8rem; color: #6b7280; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+DEFAULT_API_BASE_URL = "http://127.0.0.1:8000"
+
+
+def _secret(key: str):
+    """Read a Streamlit secret, tolerating a missing secrets.toml."""
+
+    try:
+        return st.secrets[key]
+    except Exception:
+        return None
+
+
+# Streamlit Community Cloud provides this as a secret; locally it can come
+# from the environment.
+API_BASE_URL = (
+    _secret("API_BASE_URL")
+    or os.getenv("API_BASE_URL", DEFAULT_API_BASE_URL)
+)
+
+QUERY_URL = f"{API_BASE_URL}/api/query"
+UPLOAD_URL = f"{API_BASE_URL}/api/documents"
+LOGIN_URL = f"{API_BASE_URL}/api/auth/login"
+SIGNUP_URL = f"{API_BASE_URL}/api/auth/signup"
+ME_URL = f"{API_BASE_URL}/api/me"
+
+SUPPORTED_FORMATS = "MD · TXT · PDF · DOCX · HTML"
+
+
+# ==================================================
+# API helpers
+# ==================================================
+
 
 def login(email: str, password: str):
-    response = requests.post(
-        f"{API_BASE_URL}/api/auth/login",
-        json={
-            "email": email,
-            "password": password,
-        },
-    )
+    try:
+        response = requests.post(
+            LOGIN_URL,
+            json={"email": email, "password": password},
+            timeout=30,
+        )
+    except requests.RequestException:
+        return None, "Could not reach the API."
+
+    if response.status_code != 200:
+        return None, "Invalid email or password"
+
+    return response.json(), None
+
+
+def signup(email: str, password: str, confirm_password: str):
+    try:
+        response = requests.post(
+            SIGNUP_URL,
+            json={
+                "email": email,
+                "password": password,
+                "confirm_password": confirm_password,
+            },
+            timeout=30,
+        )
+    except requests.RequestException:
+        return None, "Could not reach the API."
+
+    if response.status_code != 200:
+        try:
+            detail = response.json().get("detail")
+        except ValueError:
+            detail = None
+
+        return None, detail or "Sign up failed."
+
+    return response.json(), None
+
+
+def fetch_me(token: str):
+    try:
+        response = requests.get(
+            ME_URL,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=30,
+        )
+    except requests.RequestException:
+        return None
 
     if response.status_code != 200:
         return None
@@ -38,60 +151,218 @@ def login(email: str, password: str):
     return response.json()
 
 
-if "access_token" not in st.session_state:
-    st.title("Support Knowledge Copilot")
+def ask_question(query: str):
+    """Return ``(data, error)``. Never raises."""
 
-    email = st.text_input("Email")
-    password = st.text_input(
-        "Password",
-        type="password",
+    try:
+        response = requests.post(
+            QUERY_URL,
+            json={"query": query},
+            headers={
+                "Authorization": f"Bearer {st.session_state[TOKEN_KEY]}"
+            },
+            timeout=120,
+        )
+        response.raise_for_status()
+    except requests.RequestException as error:
+        return None, f"Could not reach the API: {error}"
+
+    try:
+        return response.json(), None
+    except ValueError:
+        return None, "The API returned an unreadable response."
+
+
+# ==================================================
+# Rendering
+# ==================================================
+
+
+def render_sources(citations):
+    if not citations:
+        st.caption("No verified sources were returned.")
+        return
+
+    st.markdown("**Sources**")
+
+    for citation in citations:
+        citation = citation or {}
+
+        supported = bool(citation.get("supported"))
+        icon = "✅" if supported else "⚠️"
+        status = "Verified" if supported else "Not verified"
+
+        source_name = citation_source_name(citation)
+        page = citation_page(citation)
+        page_or_none = page if page is not None else citation.get("page")
+        meta = format_line(citation.get("file_type"), page_or_none)
+
+        with st.expander(f"{icon} {source_name} · {status}"):
+            st.caption(f"{format_badge(citation.get('file_type'))} — {meta}")
+            st.caption(f"Chunk: {citation.get('chunk_id', 'Unknown')}")
+
+            claim = citation.get("claim")
+
+            if claim:
+                st.write(claim)
+
+            explanation = citation.get("explanation")
+
+            if explanation:
+                st.caption(explanation)
+
+
+def render_message_body(message: dict):
+    """Render a turn's contents, assuming a chat_message block is already open."""
+
+    if message.get("role") == "user":
+        st.markdown(message.get("content", ""))
+        return
+
+    error = message.get("error")
+
+    if error:
+        st.error(error)
+
+    content = message.get("content")
+
+    if content:
+        st.markdown(strip_citations(content))
+
+    confidence = float(message.get("confidence") or 0.0)
+    answerable = bool(message.get("answerable"))
+
+    st.markdown(
+        f"<div class='meta-line'>Confidence {confidence:.0%} • "
+        f"Answerable {'✓' if answerable else '✗'}</div>",
+        unsafe_allow_html=True,
     )
 
-    if st.button("Login"):
-        result = login(email, password)
+    render_sources(message.get("citations") or [])
 
-        if result:
-            st.session_state.access_token = result["access_token"]
-            st.rerun()
-        else:
-            st.error("Invalid email or password")
 
+def render_message(message: dict):
+    """Render one stored turn using ONLY that message's own metadata."""
+
+    with st.chat_message(message.get("role", "assistant")):
+        render_message_body(message)
+
+
+# ==================================================
+# Authentication
+# ==================================================
+
+
+def render_auth_screen():
+    st.markdown(
+        "<div class='app-header'><h1>🔎 Support Knowledge Copilot</h1>"
+        "<p>AI-powered answers from your verified documentation</p></div>",
+        unsafe_allow_html=True,
+    )
+
+    login_tab, signup_tab = st.tabs(["Login", "Sign Up"])
+
+    with login_tab:
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input(
+            "Password", type="password", key="login_password"
+        )
+
+        if st.button("Login", type="primary", use_container_width=True):
+            if not email.strip() or not password:
+                st.error("Enter your email and password.")
+            else:
+                result, error = login(email.strip(), password)
+
+                if error:
+                    st.error(error)
+                else:
+                    st.session_state[TOKEN_KEY] = result["access_token"]
+                    st.session_state[USER_KEY] = (
+                        fetch_me(result["access_token"])
+                        or {"email": email.strip(), "access_level": "public"}
+                    )
+                    st.rerun()
+
+    with signup_tab:
+        email = st.text_input("Email", key="signup_email")
+        password = st.text_input(
+            "Password", type="password", key="signup_password"
+        )
+        confirm_password = st.text_input(
+            "Confirm password", type="password", key="signup_confirm"
+        )
+
+        st.caption("At least 8 characters. New accounts get public access.")
+
+        if st.button("Sign Up", use_container_width=True):
+            if not email.strip() or not password:
+                st.error("Enter your email and password.")
+            elif password != confirm_password:
+                st.error("Passwords do not match.")
+            else:
+                result, error = signup(
+                    email.strip(), password, confirm_password
+                )
+
+                if error:
+                    st.error(error)
+                elif result.get("status") == "confirmation_required":
+                    st.success(result.get("message", "Check your email."))
+                else:
+                    st.session_state[TOKEN_KEY] = result["access_token"]
+                    st.session_state[USER_KEY] = {
+                        "email": result.get("email", email.strip()),
+                        "access_level": result.get(
+                            "access_level", "public"
+                        ),
+                    }
+                    st.rerun()
+
+
+init_chat_state(st.session_state)
+
+if TOKEN_KEY not in st.session_state:
+    render_auth_screen()
     st.stop()
 
 
 # ==================================================
-# Sidebar - Knowledge Base
+# Sidebar
 # ==================================================
+
+user = st.session_state.get(USER_KEY) or {}
+user_email = user.get("email", "Signed in")
+user_level = str(user.get("access_level") or "public").capitalize()
 
 with st.sidebar:
 
-    st.header("📚 Knowledge Base")
+    st.markdown("### 🔎 Support Copilot")
 
-    if st.button("Logout", use_container_width=True):
-        st.session_state.clear()
+    if st.button("+ New Chat", use_container_width=True):
+        new_chat(st.session_state)
         st.rerun()
 
+    st.divider()
+
+    st.markdown("**📚 Knowledge Base**")
     st.caption(
-        "Upload documentation to add it to the knowledge base. "
-        "Supported formats: MD, TXT, PDF, DOCX, HTML."
+        "Upload documentation to add it to the knowledge base."
     )
 
     uploaded_file = st.file_uploader(
         "Upload document",
         type=["md", "txt", "pdf", "docx", "html", "htm"],
+        label_visibility="collapsed",
     )
 
     if uploaded_file is not None:
 
-        if st.button(
-            "Upload & Index",
-            use_container_width=True,
-        ):
+        if st.button("Upload & Index", use_container_width=True):
 
             with st.spinner("Uploading and indexing..."):
 
                 try:
-
                     response = requests.post(
                         UPLOAD_URL,
                         files={
@@ -105,7 +376,9 @@ with st.sidebar:
                             )
                         },
                         headers={
-                            "Authorization": f"Bearer {st.session_state.access_token}"
+                            "Authorization": (
+                                f"Bearer {st.session_state[TOKEN_KEY]}"
+                            )
                         },
                         timeout=300,
                     )
@@ -116,249 +389,88 @@ with st.sidebar:
 
                     st.success(
                         f"✓ {data.get('filename', uploaded_file.name)} "
-                        "indexed successfully."
+                        "indexed successfully"
+                    )
+                    st.caption(
+                        f"Type: {format_meta(data.get('file_type'))['label']}"
                     )
 
                 except requests.RequestException as error:
-
                     st.error(f"Upload failed: {error}")
 
+    st.caption(f"Supported: {SUPPORTED_FORMATS}")
+
+    st.divider()
+
+    st.markdown(
+        "<div class='user-card'>"
+        f"<div class='email'>👤 {user_email}</div>"
+        f"<div class='level'>{user_level} access</div>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    if st.button("Logout", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+
 
 # ==================================================
-# Main UI
+# Main chat
 # ==================================================
 
-st.title("🔎 Support Knowledge Copilot")
-
-st.caption(
-    "Ask questions about AcmeCloud documentation "
-    "and get answers with verified citations."
+st.markdown(
+    "<div class='app-header'><h1>Support Knowledge Copilot</h1>"
+    "<p>AI-powered answers from your verified documentation</p></div>",
+    unsafe_allow_html=True,
 )
 
-
-# ==================================================
-# Conversation State
-# ==================================================
-
-if "messages" not in st.session_state:
-
-    st.session_state.messages = []
-
-
-# ==================================================
-# Display Previous Conversation
-# ==================================================
-
-for message in st.session_state.messages:
-
-    with st.chat_message(message["role"]):
-
-        st.markdown(message["content"])
-
-
-# ==================================================
-# Query
-# ==================================================
+for message in get_messages(st.session_state):
+    render_message(message)
 
 query = st.chat_input("Ask a question about AcmeCloud...")
 
-
 if query:
 
-    st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": query,
-        }
-    )
+    add_user_message(st.session_state, query)
 
     with st.chat_message("user"):
-
         st.markdown(query)
 
     with st.chat_message("assistant"):
 
-        with st.spinner("Searching the knowledge base..."):
+        with st.status(
+            "Searching documentation...",
+            expanded=False,
+        ) as status:
 
-            try:
+            data, error = ask_question(query)
 
-                response = requests.post(
-                    API_URL,
-                    json={"query": query},
-                    headers={
-                        "Authorization": f"Bearer {st.session_state.access_token}"
-                    },
-                    timeout=120,
+            if error:
+                status.update(
+                    label="Request failed",
+                    state="error",
+                )
+            else:
+                status.update(
+                    label="Verifying citations...",
+                )
+                status.update(
+                    label="Answer ready",
+                    state="complete",
                 )
 
-                response.raise_for_status()
-
-                data = response.json()
-
-            except requests.RequestException as error:
-
-                st.error(f"Could not reach the API: {error}")
-
-                st.stop()
-
-        answer = data.get(
-            "answer",
-            "No answer was returned.",
-        )
-
-        display_answer = re.sub(
-            r"\[[\w.-]+_chunk_\d+\]",
-            "",
-            answer,
-        )
-
-        display_answer = re.sub(
-            r"[ \t]+\n",
-            "\n",
-            display_answer,
-        ).strip()
-
-        st.markdown(display_answer)
-
-        confidence = data.get("confidence")
-
-        if isinstance(
-            confidence,
-            dict,
-        ):
-
-            confidence_value = confidence.get(
-                "confidence",
-                0,
-            )
-
+        if error:
+            add_assistant_message(st.session_state, "", error=error)
+            st.error(error)
+            st.caption("Your previous answers are still shown above.")
         else:
-
-            confidence_value = confidence or 0
-
-        try:
-
-            confidence_value = float(confidence_value)
-
-        except (
-            TypeError,
-            ValueError,
-        ):
-
-            confidence_value = 0.0
-
-        answerability = data.get(
-            "answerable",
-            False,
-        )
-
-        if isinstance(
-            answerability,
-            dict,
-        ):
-
-            answerability = answerability.get(
-                "answerable",
-                False,
+            add_assistant_message(
+                st.session_state,
+                data.get("answer", "No answer was returned."),
+                confidence=data.get("confidence"),
+                answerable=data.get("answerable"),
+                citations=data.get("citations", []),
             )
 
-        st.divider()
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-
-            st.metric(
-                "Confidence",
-                f"{confidence_value:.0%}",
-            )
-
-        with col2:
-
-            st.metric(
-                "Answerable",
-                "Yes" if answerability else "No",
-            )
-
-        citations = data.get(
-            "citations",
-            [],
-        )
-
-        if citations:
-
-            st.subheader("Sources")
-
-            for citation in citations:
-
-                chunk_id = citation.get(
-                    "chunk_id",
-                    "Unknown",
-                )
-
-                supported = citation.get(
-                    "supported",
-                    False,
-                )
-
-                claim = citation.get(
-                    "claim",
-                    "",
-                )
-
-                explanation = citation.get(
-                    "explanation",
-                    "",
-                )
-
-                citation_source = citation.get(
-                    "source",
-                    "",
-                )
-
-                page = citation.get(
-                    "page",
-                )
-
-                icon = "✅" if supported else "⚠️"
-
-                source_name = chunk_id
-
-                if "_chunk_" in chunk_id:
-
-                    source_name = chunk_id.split("_chunk_")[0]
-
-                status = "Verified" if supported else "Not verified"
-
-                with st.expander(f"{icon} {source_name} . {status}"):
-
-                    st.caption(f"Chunk: {chunk_id}")
-
-                    if citation_source:
-                        if page is not None:
-                            st.caption(
-                                f"Source: {citation_source} · Page {page}"
-                            )
-                        else:
-                            st.caption(
-                                f"Source: {citation_source}"
-                            )
-
-                    if claim:
-
-                        st.write(claim)
-
-                    if explanation:
-
-                        st.caption(explanation)
-
-        else:
-
-            st.info("No verified sources were returned.")
-
-    st.session_state.messages.append(
-        {
-            "role": "assistant",
-            "content": answer,
-        }
-    )
+            render_message_body(get_messages(st.session_state)[-1])

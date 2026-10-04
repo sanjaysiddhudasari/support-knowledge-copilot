@@ -70,6 +70,7 @@ def test_upload_txt_succeeds(env):
 
     assert response.status_code == 200
     assert response.json()["filename"] == "notes.txt"
+    assert response.json()["file_type"] == "text"
     assert (raw_dir / "notes.txt").exists()
     assert fake.calls == [str(raw_dir)]
 
@@ -82,6 +83,7 @@ def test_upload_pdf_succeeds(env):
     response = upload(client, "guide.pdf", payload, "application/pdf")
 
     assert response.status_code == 200
+    assert response.json()["file_type"] == "pdf"
     assert (raw_dir / "guide.pdf").exists()
 
 
