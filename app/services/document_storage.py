@@ -139,6 +139,18 @@ class DocumentService:
         """
 
         clean_name = sanitize_filename(filename)
+
+        # Same (user_id, filename) = a new revision, not a duplicate row
+        # (the DB enforces a unique constraint). Overwrite the blob at the
+        # SAME storage path and bump the version, so re-uploading a file the
+        # user already sent updates it instead of 500ing.
+        existing = self.find_by_filename(user_id, clean_name)
+
+        if existing is not None:
+            return self._overwrite_current(
+                existing, clean_name, data, file_type
+            )
+
         document_id = str(uuid.uuid4())
         path = storage_path(user_id, document_id, clean_name)
 
@@ -177,6 +189,57 @@ class DocumentService:
             raise
 
         return _row(response) or payload
+
+    def find_by_filename(
+        self, user_id: str, filename: str
+    ) -> dict | None:
+        """Metadata row for a user's filename, or None."""
+
+        response = (
+            self._client.table("documents")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("filename", sanitize_filename(filename))
+            .limit(1)
+            .execute()
+        )
+
+        return _row(response)
+
+    def _overwrite_current(
+        self,
+        existing: dict,
+        filename: str,
+        data: bytes,
+        file_type: str,
+    ) -> dict:
+        """Replace the bytes and bump the version of an existing document.
+
+        Keeps the same document id and storage path so no orphan blob is left
+        and historical references (chunk ids, citations) stay stable; only the
+        content hash, size, type, version and status move forward.
+        """
+
+        path = existing["storage_path"]
+
+        self._client.storage.from_(self._bucket).update(path, data)
+
+        payload = {
+            "content_hash": content_hash_bytes(data),
+            "size_bytes": len(data),
+            "file_type": file_type,
+            "version": int(existing.get("version") or 1) + 1,
+            "status": "pending",
+        }
+
+        response = (
+            self._client.table("documents")
+            .update(payload)
+            .eq("id", existing["id"])
+            .execute()
+        )
+
+        return _row(response) or {**existing, **payload}
 
     # -- reads ---------------------------------------------------------------
 

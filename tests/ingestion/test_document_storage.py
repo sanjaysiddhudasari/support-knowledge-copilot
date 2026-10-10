@@ -79,14 +79,31 @@ def test_upload_stores_blob_and_row(service):
     assert blob == b"%PDF-bytes"
 
 
-def test_upload_creates_stable_document_id_not_filename_identity(service):
-    first = service.upload(USER_A, "a.md", b"one", file_type="markdown")
-    second = service.upload(USER_A, "a.md", b"two", file_type="markdown")
+def test_upload_same_filename_bumps_version_not_duplicate(service):
+    """Re-uploading the same filename is an update, not a 500/duplicate."""
 
-    # Different document ids: the same filename is a new document revision,
-    # not a blob collision.
-    assert first["id"] != second["id"]
-    assert first["storage_path"] != second["storage_path"]
+    first = service.upload(USER_A, "doc.md", b"version one", file_type="markdown")
+    second = service.upload(USER_A, "doc.md", b"version two", file_type="markdown")
+
+    # Same row, same storage path (no orphan), version bumped.
+    assert second["id"] == first["id"]
+    assert second["storage_path"] == first["storage_path"]
+    assert second["version"] == 2
+    assert second["content_hash"] != first["content_hash"]
+
+    # The blob bytes were overwritten in place.
+    assert (
+        service.client.blobs[first["storage_path"]] == b"version two"
+    )
+
+    # Still exactly one metadata row for that user+filename.
+    rows = [
+        r
+        for r in service.client.rows("documents")
+        if r["user_id"] == USER_A and r["filename"] == "doc.md"
+    ]
+
+    assert len(rows) == 1
 
 
 def test_upload_failure_leaves_no_orphaned_blob():
