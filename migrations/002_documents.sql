@@ -40,7 +40,7 @@ begin
 end;
 $$ language plpgsql;
 
-drop trigger if exists documents_set_updated_at;
+drop trigger if exists documents_set_updated_at on documents;
 create trigger documents_set_updated_at
     before update on documents
     for each row
