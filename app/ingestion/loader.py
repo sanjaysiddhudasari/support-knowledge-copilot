@@ -11,12 +11,17 @@ the indexer imports that set instead of maintaining its own copy.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 from app.ingestion.frontmatter import (
+    FrontMatterError,
     default_metadata,
+    frontmatter_declared,
     parse_front_matter,
     remove_front_matter,
 )
@@ -112,20 +117,33 @@ class MarkdownLoader(DocumentLoader):
 
     def load(self, path: Path) -> LoadedDocument:
 
-        raw_text = self._read_text(path)
+            raw_text = self._read_text(path)
 
-        metadata = parse_front_matter(raw_text)
-        metadata["file_type"] = self.file_type
+            try:
+                metadata = parse_front_matter(raw_text)
+            except FrontMatterError as error:
+                # Fail loudly: a mangled header must not default to a wrong
+                # access level. The upload path turns this into a clean 400.
+                raise DocumentLoadError(str(error))
 
-        return LoadedDocument(
-            text=remove_front_matter(raw_text),
-            source=path.name,
-            document_type=metadata["document_type"],
-            metadata=metadata,
-            file_type=self.file_type,
-            heading_aware=True,
-            raw_text=raw_text,
-        )
+            if not frontmatter_declared(raw_text):
+                logger.warning(
+                    "No front matter in %s; using default access level %r",
+                    path.name,
+                    metadata["access_level"],
+                )
+
+            metadata["file_type"] = self.file_type
+
+            return LoadedDocument(
+                text=remove_front_matter(raw_text),
+                source=path.name,
+                document_type=metadata["document_type"],
+                metadata=metadata,
+                file_type=self.file_type,
+                heading_aware=True,
+                raw_text=raw_text,
+            )
 
 
 class TextLoader(DocumentLoader):

@@ -1,14 +1,9 @@
-\---
+---
+access_level: admin
+document_type: guide
+last_updated: 2026-10-02
+---
 
-access\_level: admin
+# Admin Test
 
-document\_type: guide
-
-last\_updated: 2026-10-02
-
-\---
-
-
-
-ADMIN\_TEST\_SECRET: admin-document-789
-
+This document tests that an admin access level is indexed correctly.

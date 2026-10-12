@@ -1,14 +1,9 @@
-\---
+---
+access_level: internal
+document_type: guide
+last_updated: 2026-10-02
+---
 
-access\_level: internal
+# Internal Test
 
-document\_type: guide
-
-last\_updated: 2026-10-02
-
-\---
-
-
-
-INTERNAL\_TEST\_SECRET: internal-document-456
-
+This document tests that an internal access level is indexed correctly.
