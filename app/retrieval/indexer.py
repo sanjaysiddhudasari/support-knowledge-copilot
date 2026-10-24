@@ -25,10 +25,10 @@ class Indexer:
         self.vector_store = VectorStore()
         self.bm25_retriever = BM25Retriever()
 
+        # Lazy: the local embedding model is only loaded if embeddings are
+        # actually requested (never at construction), so indexer-only callers
+        # (tests, changelisting) stay light and CI-free of PyTorch/model loads.
         self.embedding_service = None
-        if not (os.getenv("QDRANT_URL") and os.getenv("QDRANT_API_KEY")):
-            from app.retrieval.embedding import EmbeddingService
-            self.embedding_service = EmbeddingService()
 
     def _load_manifest(self):
         if not self.manifest_path.exists():
@@ -122,6 +122,13 @@ class Indexer:
             return None
 
         if self.embedding_service is not None:
+            return self.embedding_service.embed_texts(
+                [chunk.text for chunk in chunks]
+            )
+
+        if not (os.getenv("QDRANT_URL") and os.getenv("QDRANT_API_KEY")):
+            from app.retrieval.embedding import EmbeddingService
+            self.embedding_service = EmbeddingService()
             return self.embedding_service.embed_texts(
                 [chunk.text for chunk in chunks]
             )

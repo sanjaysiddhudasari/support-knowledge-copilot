@@ -509,9 +509,14 @@ Do not commit real secrets.
 
 ## Data persistence note
 
-Qdrant vectors are stored in Qdrant Cloud, while BM25 is bundled with the backend image/repository.
-
-The current admin upload endpoint writes uploaded documents (MD, TXT, PDF, DOCX, HTML) and the regenerated BM25 index to the backend filesystem. On Render, the default filesystem is ephemeral. Therefore uploaded documents are not durable across restarts/redeploys unless a paid persistent disk or an external document/object-storage workflow is added. The committed 120-chunk corpus remains available because it is part of the repository and Qdrant Cloud.
+Original uploaded documents (MD, TXT, PDF, DOCX, HTML) are the **source of
+truth in Supabase Storage**, with metadata/ownership/versions in Supabase
+Postgres. Qdrant **Cloud** holds the dense vectors (also durable). BM25
+(`data/bm25/index.joblib`) and `data/index/manifest.json` are **derived /
+bookkeeping** state kept on the backend filesystem only as a cache; they are
+rebuilt from durable documents whenever they are missing, and refreshed in
+place on every upload/delete/reindex — so nothing is lost on a Render
+redeploy, even though the Render filesystem itself is ephemeral.
 
 ## Production flow
 

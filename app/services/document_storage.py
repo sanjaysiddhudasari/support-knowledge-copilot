@@ -10,6 +10,7 @@ untouched; this module only replaces "the file lives on Render's disk" with
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import uuid
 from pathlib import Path
@@ -17,7 +18,7 @@ from typing import Any
 
 from app.auth.client import supabase_admin
 
-BUCKET = "documents"
+BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "documents")
 DEFAULT_ACCESS_LEVEL = "public"
 
 

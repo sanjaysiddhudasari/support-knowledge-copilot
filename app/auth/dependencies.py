@@ -38,7 +38,7 @@ def get_current_user(
         .table("profiles")
         .select("id, email, access_level")
         .eq("id", auth_user.id)
-        .single()
+        # no .single() — 0 rows returns [] not PGRST116 500
         .execute()
 )
 
