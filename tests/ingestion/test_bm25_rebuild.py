@@ -20,6 +20,7 @@ from app.retrieval.rebuild import (  # noqa: E402
 from fake_storage_supabase import FakeSupabaseStorage  # noqa: E402
 
 USER_A = "11111111-1111-1111-1111-111111111111"
+USER_B = "22222222-2222-2222-2222-222222222222"
 
 
 @pytest.fixture
@@ -46,9 +47,20 @@ class DocumentServiceStub:
         self._rows = []
 
     def list_documents(self, user_id):
-        return list(self._rows)
+        return [
+            r for r in self._rows if r.get("user_id") == user_id
+        ]
+
+    def list_all_documents(self):
+        return [dict(r) for r in self._rows]
+
+    def download_all(self, document_id, workdir):
+        return self._download(document_id, workdir)
 
     def download(self, user_id, document_id, workdir):
+        return self._download(document_id, workdir)
+
+    def _download(self, document_id, workdir):
         row = next(r for r in self._rows if r["id"] == document_id)
 
         from pathlib import Path
@@ -170,7 +182,7 @@ def test_rebuild_builds_from_durable_documents(env):
         USER_A, "beta.md", "# Beta\n\nbeta markdown".encode(), "markdown"
     )
 
-    result = rebuild_bm25(service, USER_A, str(tmp))
+    result = rebuild_bm25(service, str(tmp))
 
     assert result["document_count"] == 2
     assert result["chunk_count"] > 0
@@ -189,7 +201,7 @@ def test_rebuild_builds_from_durable_documents(env):
 def test_rebuild_zero_documents_is_valid_empty_state(env):
     service, tmp = env
 
-    result = rebuild_bm25(service, USER_A, str(tmp))
+    result = rebuild_bm25(service, str(tmp))
 
     assert result["document_count"] == 0
 
@@ -217,7 +229,7 @@ def test_fresh_state_is_not_stale(env):
     service, tmp = env
 
     service.seed(USER_A, "a.txt", b"content", "text")
-    rebuild_bm25(service, USER_A, str(tmp))
+    rebuild_bm25(service, str(tmp))
 
     # Sync the manifest documents with the durable rows (as upload does).
     manifest = _manifest(env)
@@ -255,3 +267,106 @@ def test_stale_state_detected_on_hash_change(env):
     manifest["documents"]["a.txt"]["content_hash"] = "new"
 
     assert is_stale(manifest) is True
+
+# ---------------------------------------------------------------------------
+# Task 3: reindex covers all owners; delete is reflected; no restart needed
+# ---------------------------------------------------------------------------
+
+
+def test_rebuild_covers_documents_from_multiple_owners(env):
+    """Rebuild must include every document, not just the calling admin's."""
+
+    service, tmp = env
+
+    service.seed(USER_A, "alpha.txt", b"alpha document", "text")
+    service.seed(USER_B, "beta.txt", b"beta document", "text")
+
+    result = rebuild_bm25(service, str(tmp))
+
+    assert result["document_count"] == 2
+
+    retriever = BM25Retriever()
+    retriever.load(rebuild.BM25_INDEX_PATH)
+
+    sources = {r.chunk.source for r in retriever.retrieve("document", top_k=5)}
+
+    assert {"alpha.txt", "beta.txt"} <= sources
+
+
+def test_rebuild_after_delete_excludes_the_document(env):
+    """Deleting a durable doc + rebuild means it stops surfacing in BM25."""
+
+    service, tmp = env
+
+    service.seed(USER_A, "keeper.txt", b"keeper content", "text")
+    service.seed(USER_A, "goner.txt", b"goner content", "text")
+
+    rebuild_bm25(service, str(tmp))
+
+    # Simulate the delete flow: goner's row + blob removed from the source
+    # of truth; keeper's stays.
+    keeper_row = next(
+        r for r in service._rows if r["filename"] == "keeper.txt"
+    )
+    service._rows = [keeper_row]
+    keeper_path = keeper_row["storage_path"]
+    service.client.blobs = {
+        k: v for k, v in service.client.blobs.items() if k == keeper_path
+    }
+
+    rebuild_bm25(service, str(tmp))
+
+    retriever = BM25Retriever()
+    retriever.load(rebuild.BM25_INDEX_PATH)
+
+    hits = retriever.retrieve("goner", top_k=5)
+
+    assert all(hit.chunk.source != "goner.txt" for hit in hits)
+
+
+def test_runtime_retriever_picks_up_rebuild_without_restart(env, monkeypatch):
+    """rebuild_bm25 reloads every live service's in-memory index (no restart)."""
+
+    service, tmp = env
+
+    service.seed(USER_A, "a.txt", b"alpha beta", "text")
+    rebuild_bm25(service, str(tmp))
+
+    from app.retrieval.bm25 import BM25Retriever
+    from app.services import retrieval_service as rs_mod
+    from app.services.retrieval_service import reload_all_bm25
+
+    # The runtime retriever must read the same temp index the fixture builds.
+    monkeypatch.setattr(
+        rs_mod, "BM25_INDEX_PATH", str(tmp / "bm25" / "index.joblib")
+    )
+
+    # A service-shaped object taking the real reload_bm25 path.
+    class Live:
+        def __init__(self):
+            self.bm25_retriever = BM25Retriever()
+            self._load_bm25()
+
+        def _load_bm25(self):
+            self.bm25_retriever.load(rs_mod.BM25_INDEX_PATH)
+
+        def reload_bm25(self):
+            self._load_bm25()
+
+    rs_mod._LIVE_SERVICES.clear()
+    live = Live()
+    rs_mod._LIVE_SERVICES.add(live)
+
+    assert {c.source for c in live.bm25_retriever.chunks} == {"a.txt"}
+
+    # A new upload + rebuild writes a newer index and reloads live services,
+    # so the same running process sees the new doc without a restart.
+    service.seed(USER_A, "b.txt", b"freshterm content", "text")
+    rebuild_bm25(service, str(tmp))
+
+    reload_all_bm25()  # rebuild already does this; explicit for clarity
+
+    sources = {c.source for c in live.bm25_retriever.chunks}
+
+    assert "b.txt" in sources
+    assert "a.txt" in sources

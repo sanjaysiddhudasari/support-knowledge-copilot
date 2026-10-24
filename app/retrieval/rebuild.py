@@ -20,6 +20,7 @@ from app.ingestion.loader import load_document
 from app.retrieval.bm25 import BM25Retriever
 from app.retrieval.indexer import MANIFEST_PATH, BM25_INDEX_PATH
 from app.retrieval.vector_store import VectorStore
+from app.services.retrieval_service import reload_all_bm25
 from app.observability.tracing import span
 
 BM25_STATE_KEY = "bm25"
@@ -141,12 +142,11 @@ def is_stale(manifest: dict | None = None) -> bool:
     return current != recorded
 
 
-def rebuild_bm25(service, admin_user_id: str, workdir: str) -> dict:
+def rebuild_bm25(service, workdir: str) -> dict:
     """Rebuild BM25 from durable documents.
 
-    Postgres lists the documents; Storage supplies the bytes; the normal
-    loader/chunker pipeline does the rest. Also validates staleness against
-    the state recorded in the manifest.
+    Postgres lists every document (service path, all owners); Storage
+    supplies the bytes; the normal loader/chunker pipeline does the rest.
     """
 
     with span(
@@ -155,7 +155,7 @@ def rebuild_bm25(service, admin_user_id: str, workdir: str) -> dict:
         tags=["ingestion", "bm25"],
         metadata={"trigger": "manual"},
     ) as run:
-        documents = service.list_documents(admin_user_id)
+        documents = service.list_all_documents()
 
         if not documents:
             # Valid empty state: BM25 with no documents retrieves nothing
@@ -170,6 +170,8 @@ def rebuild_bm25(service, admin_user_id: str, workdir: str) -> dict:
 
             run.add_metadata({"bm25_document_count": 0, "chunk_count": 0})
 
+            reload_all_bm25()
+
             return {
                 "status": "rebuilt",
                 "document_count": 0,
@@ -179,9 +181,7 @@ def rebuild_bm25(service, admin_user_id: str, workdir: str) -> dict:
         chunks = []
 
         for row in documents:
-            document_path = service.download(
-                admin_user_id, row["id"], workdir
-            )
+            document_path = service.download_all(row["id"], workdir)
 
             loaded = load_document(str(document_path))
 
@@ -205,6 +205,8 @@ def rebuild_bm25(service, admin_user_id: str, workdir: str) -> dict:
                 "chunk_count": len(chunks),
             }
         )
+
+        reload_all_bm25()
 
         return {
             "status": "rebuilt",

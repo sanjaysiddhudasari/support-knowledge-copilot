@@ -296,6 +296,39 @@ class DocumentService:
 
         return target
 
+    def download_all(self, document_id: str, destination_dir: str) -> Path:
+        """Download any document by id (service/rebuild path, no ownership).
+
+        Used by the BM25 rebuild, which must see every document regardless of
+        which admin uploaded it. Caller is responsibility-limited to rebuilt
+        batches; not exposed to per-user reads.
+        """
+
+        response = (
+            self._client.table("documents")
+            .select("*")
+            .eq("id", document_id)
+            .execute()
+        )
+
+        row = _row(response)
+
+        if row is None:
+            raise DocumentNotFound(document_id)
+
+        blob = (
+            self._client.storage.from_(self._bucket)
+            .download(row["storage_path"])
+        )
+
+        directory = Path(destination_dir)
+        directory.mkdir(parents=True, exist_ok=True)
+
+        target = directory / row["filename"]
+        target.write_bytes(blob)
+
+        return target
+
     # -- update / delete -----------------------------------------------------
 
     def replace_content(

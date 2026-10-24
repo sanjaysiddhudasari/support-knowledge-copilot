@@ -161,6 +161,13 @@ async def upload_document(
                 content_hash=document["content_hash"],
             )
 
+            # Keep the lexical index in step: a rebuild here is cheap at the
+            # current corpus size and makes new uploads searchable without a
+            # restart (the runtime retriever reloads on mtime change).
+            from app.retrieval.rebuild import rebuild_bm25
+
+            rebuild_bm25(service, tmp)
+
             service.mark_status(current_user.id, document["id"], "ready")
 
         except Exception as error:
@@ -234,9 +241,12 @@ def delete_document(
         raise HTTPException(503, f"Document storage failed: {error}")
 
     try:
-        from app.retrieval.rebuild import remove_document_chunks
+        from app.retrieval.rebuild import rebuild_bm25, remove_document_chunks
 
-        remove_document_chunks(row)
+        with tempfile.TemporaryDirectory() as tmp:
+            remove_document_chunks(row)
+            # BM25 rebuild reflects the deletion so the doc stops surfacing.
+            rebuild_bm25(service, tmp)
     except Exception as error:
         # Metadata/blob deletion succeeded; index cleanup failed.
         raise HTTPException(
@@ -265,7 +275,7 @@ def reindex_documents(
 
     with tempfile.TemporaryDirectory() as tmp:
         try:
-            result = rebuild_bm25(service, current_user.id, tmp)
+            result = rebuild_bm25(service, tmp)
         except DocumentError as error:
             raise HTTPException(503, f"Reindex failed: {error}")
         except Exception as error:
