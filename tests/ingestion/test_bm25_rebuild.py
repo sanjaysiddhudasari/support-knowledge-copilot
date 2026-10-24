@@ -19,6 +19,17 @@ from app.retrieval.rebuild import (  # noqa: E402
 )
 from fake_storage_supabase import FakeSupabaseStorage  # noqa: E402
 
+from app.retrieval import vector_store as rebuild_module  # noqa: E402
+
+
+from app.retrieval.rebuild import (  # noqa: E402
+    BM25_STATE_KEY,
+    index_uploaded_file,
+    is_stale,
+    rebuild_bm25,
+    remove_document_chunks,
+)
+
 USER_A = "11111111-1111-1111-1111-111111111111"
 USER_B = "22222222-2222-2222-2222-222222222222"
 
@@ -370,3 +381,47 @@ def test_runtime_retriever_picks_up_rebuild_without_restart(env, monkeypatch):
 
     assert "b.txt" in sources
     assert "a.txt" in sources
+
+
+# ---------------------------------------------------------------------------
+# Task 4: document_id in Qdrant payload; delete independent of the manifest
+# ---------------------------------------------------------------------------
+
+
+def test_index_uploaded_file_tags_vectors_with_document_id(tmp_path, env, monkeypatch):
+    service, tmp = env
+
+    source = tmp / "notes.txt"
+    source.write_text("some unique body text here", encoding="utf-8")
+
+    seen = {}
+
+    def spy(self, chunks, embeddings=None, document_id=None):
+        seen["document_id"] = document_id
+        seen["n"] = len(chunks)
+
+    monkeypatch.setattr(
+        rebuild_module.VectorStore, "upsert_chunks", spy
+    )
+
+    index_uploaded_file(source, version=1, content_hash="h", document_id="doc-abc")
+
+    assert seen["document_id"] == "doc-abc"
+    assert seen["n"] > 0
+
+
+def test_remove_document_chunks_deletes_by_payload_without_manifest(tmp_path, env, monkeypatch):
+    service, tmp = env
+
+    deleted_by_doc = []
+
+    monkeypatch.setattr(
+        rebuild_module.VectorStore,
+        "delete_by_document",
+        lambda self, doc_id: deleted_by_doc.append(doc_id),
+    )
+
+    # No manifest record for the filename (e.g. after a redeploy wiped it).
+    remove_document_chunks({"filename": "gone.txt", "id": "doc-xyz"})
+
+    assert deleted_by_doc == ["doc-xyz"]

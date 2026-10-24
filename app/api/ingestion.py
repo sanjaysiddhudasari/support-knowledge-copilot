@@ -41,7 +41,10 @@ def get_document_service() -> DocumentService:
     return _service
 
 
-def _index_documents(path: Path, version: int, content_hash: str | None):
+def _index_documents(
+    path: Path, version: int, content_hash: str | None,
+    document_id: str | None = None,
+):
     """Chunk and index one uploaded file via the existing loaders/chunkers.
 
     Uses the per-file path (rebuild.index_uploaded_file), NOT
@@ -53,7 +56,8 @@ def _index_documents(path: Path, version: int, content_hash: str | None):
     from app.retrieval.rebuild import index_uploaded_file
 
     return index_uploaded_file(
-        path, version=version, content_hash=content_hash
+        path, version=version, content_hash=content_hash,
+        document_id=document_id,
     )
 
 
@@ -159,6 +163,7 @@ async def upload_document(
                 stored_path,
                 version=document["version"],
                 content_hash=document["content_hash"],
+                document_id=document["id"],
             )
 
             # Keep the lexical index in step: a rebuild here is cheap at the

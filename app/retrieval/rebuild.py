@@ -45,6 +45,7 @@ def index_uploaded_file(
     path: Path,
     version: int,
     content_hash: str | None = None,
+    document_id: str | None = None,
 ) -> list:
     """Chunk one uploaded file, replace its Qdrant chunks, update manifest.
 
@@ -68,7 +69,7 @@ def index_uploaded_file(
     if old_chunk_ids:
         vector_store.delete_chunks(old_chunk_ids)
 
-    vector_store.upsert_chunks(chunks=chunks)
+    vector_store.upsert_chunks(chunks=chunks, document_id=document_id)
 
     documents[filename] = {
         "content_hash": content_hash or old_record.get("content_hash", ""),
@@ -90,10 +91,16 @@ def remove_document_chunks(row: dict) -> int:
 
     record = documents.pop(row["filename"], None)
 
+    vector_store = VectorStore()
     removed = 0
+    document_id = row.get("id")
 
-    if record and record.get("chunk_ids"):
-        vector_store = VectorStore()
+    if document_id:
+        # Primary path: delete by payload filter so a lost manifest (redeploy)
+        # never leaks vectors. Chunk ids are only a fallback.
+        vector_store.delete_by_document(document_id)
+        removed = len(record["chunk_ids"]) if record else 0
+    elif record and record.get("chunk_ids"):
         vector_store.delete_chunks(record["chunk_ids"])
         removed = len(record["chunk_ids"])
 

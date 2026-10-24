@@ -107,6 +107,12 @@ hash-mismatched state is detected via `rebuild.is_stale()`; an empty corpus is a
 valid empty state (BM25 returns no hits instead of erroring, and hybrid falls
 back to dense-only).
 
+`data/index/manifest.json` is **bookkeeping/seed state only**, not a source of
+truth: on a redeploy it may reset, so deletes remove Qdrant vectors by the
+`document_id` stored in each chunk's payload (not by the manifest). The runtime
+BM25 index is rebuilt from durable docs when the file is missing at startup, and
+reloaded in place (no restart) after every upload/delete/reindex.
+
 ### Existing-data migration (one-time)
 
 For documents currently living only in `data/raw/` on Render: upload each file

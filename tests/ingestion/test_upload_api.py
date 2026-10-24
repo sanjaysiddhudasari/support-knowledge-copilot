@@ -138,7 +138,7 @@ def env(monkeypatch, tmp_path):
         rebuild_module, "BM25_INDEX_PATH", str(tmp_path / "bm25.joblib")
     )
 
-    def fake_index(path, version, content_hash):
+    def fake_index(path, version, content_hash, document_id=None):
         if service.fail_indexing:
             raise RuntimeError("qdrant down")
 
@@ -165,6 +165,22 @@ def env(monkeypatch, tmp_path):
     monkeypatch.setattr(
         rebuild_module, "index_uploaded_file", fake_index
     )
+
+    # The upload route also triggers a BM25 rebuild; not exercising the
+    # real rebuild in endpoint tests (covered separately in test_bm25_rebuild).
+    monkeypatch.setattr(
+        rebuild_module,
+        "rebuild_bm25",
+        lambda service, workdir: {
+            "status": "rebuilt",
+            "document_count": 0,
+            "chunk_count": 0,
+        },
+    )
+
+    # Delete's Qdrant cleanup is exercised in test_bm25_rebuild; keep endpoint
+    # tests here free of the real vector/derived side effects.
+    monkeypatch.setattr(rebuild_module, "remove_document_chunks", lambda row: 0)
 
     app.dependency_overrides[get_current_user] = lambda: ADMIN
     app.dependency_overrides[get_document_service] = lambda: service

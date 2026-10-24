@@ -6,6 +6,10 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
     ExtendedPointId,
+    FieldCondition,
+    Filter,
+    FilterSelector,
+    MatchValue,
     PointIdsList,
     PointStruct,
     VectorParams,
@@ -22,12 +26,12 @@ VECTOR_SIZE = 384
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
-def _build_payload(chunk) -> dict:
+def _build_payload(chunk, document_id: str | None = None) -> dict:
     """Build the Qdrant payload for a chunk.
 
     The core fields are always present so existing collections stay
-    compatible. ``file_type`` and ``page`` are optional ingestion metadata and
-    are only written when known (PDF pages, non-Markdown formats).
+    compatible. ``file_type``, ``page`` and ``document_id`` are optional
+    ingestion metadata written only when known/available.
     """
 
     payload = {
@@ -49,6 +53,9 @@ def _build_payload(chunk) -> dict:
 
     if page is not None:
         payload["page"] = page
+
+    if document_id is not None:
+        payload["document_id"] = document_id
 
     return payload
 
@@ -87,7 +94,7 @@ class VectorStore:
             ),
         )
 
-    def upsert_chunks(self, chunks, embeddings=None):
+    def upsert_chunks(self, chunks, embeddings=None, document_id=None):
         points = []
 
         for index, chunk in enumerate(chunks):
@@ -106,7 +113,7 @@ class VectorStore:
             point = PointStruct(
                 id=str(uuid5(NAMESPACE_URL, chunk.chunk_ids)),
                 vector=vector,
-                payload=_build_payload(chunk),
+                payload=_build_payload(chunk, document_id),
             )
             points.append(point)
 
@@ -132,6 +139,34 @@ class VectorStore:
         print(
             f"Deleted {len(point_ids)} chunks from Qdrant."
         )
+
+    def delete_by_document(self, document_id: str) -> int:
+        """Delete a document's vectors by payload filter.
+
+        Independent of the local manifest: after a redeploy (which resets
+        data/index/manifest.json) deletes still find the vectors because the
+        document id is stored in each chunk's payload.
+        """
+
+        selector = FilterSelector(
+            filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="document_id",
+                        match=MatchValue(value=document_id),
+                    )
+                ]
+            )
+        )
+
+        self.client.delete(
+            collection_name=COLLECTION_NAME,
+            points_selector=selector,
+        )
+
+        # Qdrant does not count deleted points synchronously here; returning
+        # the number we asked to delete keeps callers simple.
+        return 0
 
     def search(
         self,
