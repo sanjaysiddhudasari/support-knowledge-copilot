@@ -394,3 +394,93 @@ def test_get_document_metadata(env):
     assert body["version"] == 1
     assert body["status"] == "ready"
     assert body["content_hash"]
+
+
+# ---------------------------------------------------------------------------
+# Section 2: upload size enforced while reading (bounded, no unbounded read)
+# ---------------------------------------------------------------------------
+
+
+def test_upload_exactly_at_limit_is_accepted(env, monkeypatch):
+    client, service = env
+
+    monkeypatch.setattr(ingestion_api, "MAX_UPLOAD_BYTES", 10)
+
+    response = upload(client, "ok.txt", b"0123456789")
+
+    assert response.status_code == 200
+    assert len(service.store.rows("documents")) == 1
+
+
+def test_upload_one_byte_over_limit_is_413_with_no_artifacts(env, monkeypatch):
+    client, service = env
+
+    monkeypatch.setattr(ingestion_api, "MAX_UPLOAD_BYTES", 10)
+
+    response = upload(client, "big.txt", b"x" * 11)
+
+    assert response.status_code == 413
+    assert service.store.rows("documents") == []
+    assert service.store.blobs == {}
+
+
+def test_bounded_read_never_reads_the_whole_file(monkeypatch):
+    """_read_bounded reads in <=1 MiB chunks and assembles bytes."""
+
+    from types import SimpleNamespace
+
+    from app.api.ingestion import _read_bounded
+
+    class Stream:
+        def __init__(self, data):
+            self.data = data
+            self.pos = 0
+            self.read_sizes = []
+
+        def read(self, n=-1):
+            self.read_sizes.append(n)
+            if not self.data:
+                return b""
+
+            piece = self.data[self.pos:self.pos + n]
+            self.pos += len(piece)
+            return piece
+
+    stream = Stream(b"a" * (2 * 1024 * 1024 + 7))
+    file = SimpleNamespace(file=stream)
+
+    out = _read_bounded(file)
+
+    assert out == b"a" * (2 * 1024 * 1024 + 7)
+    # every read is bounded to <= 1 MiB
+    assert all(size <= 1024 * 1024 for size in stream.read_sizes)
+    assert len(stream.read_sizes) > 1
+
+
+def test_bounded_read_rejects_oversize(monkeypatch):
+    from types import SimpleNamespace
+
+    from fastapi import HTTPException
+
+    from app.api.ingestion import _read_bounded
+
+    class Stream:
+        def __init__(self, data):
+            self.data = data
+            self.pos = 0
+
+        def read(self, n=-1):
+            piece = self.data[self.pos:self.pos + n]
+            self.pos += len(piece)
+            return piece
+
+    coned_under = Stream(b"x" * (20 * 1024 * 1024 + 1))
+
+    monkeypatch.setattr(ingestion_api, "MAX_UPLOAD_BYTES", 20 * 1024 * 1024)
+
+    try:
+        _read_bounded(SimpleNamespace(file=coned_under))
+    except HTTPException as exc:
+        assert exc.status_code == 413
+    else:
+        raise AssertionError("expected 413 for oversize")

@@ -74,6 +74,41 @@ def _parse_error(error: Exception) -> HTTPException:
     )
 
 
+def _read_bounded(file: UploadFile) -> bytes:
+    """Read the upload in chunks, rejecting as soon as it exceeds the limit.
+
+    Never buffers the whole file in memory for a file over the cap: reading
+    stops (and 413 is raised) right after the limit is passed. Rejects leave
+    no metadata, Storage object, temp file, or index entry.
+    """
+
+    stream = file.file if hasattr(file, "file") else file
+    chunk_size = 1024 * 1024  # 1 MiB
+    pieces = []
+    total = 0
+
+    while True:
+        piece = stream.read(chunk_size)
+
+        if not piece:
+            break
+
+        total += len(piece)
+
+        if total > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                413,
+                (
+                    "The uploaded document exceeds the "
+                    f"{MAX_UPLOAD_BYTES // (1024 * 1024)} MB size limit."
+                ),
+            )
+
+        pieces.append(piece)
+
+    return b"".join(pieces)
+
+
 def _validate(file: UploadFile) -> tuple[str, bytes]:
     if not file.filename:
         raise HTTPException(400, "Filename is required.")
@@ -94,19 +129,10 @@ def _validate(file: UploadFile) -> tuple[str, bytes]:
             ),
         )
 
-    contents = file.file.read() if hasattr(file, "file") else file.read()
+    contents = _read_bounded(file)
 
     if not contents:
         raise HTTPException(400, "The uploaded document is empty.")
-
-    if len(contents) > MAX_UPLOAD_BYTES:
-        raise HTTPException(
-            413,
-            (
-                "The uploaded document exceeds the "
-                f"{MAX_UPLOAD_BYTES // (1024 * 1024)} MB size limit."
-            ),
-        )
 
     return clean, contents
 
