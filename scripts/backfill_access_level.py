@@ -18,6 +18,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+# scripts/ isn't a package; put the repo root on sys.path so `app` imports,
+# regardless of the cwd it's launched from.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 load_dotenv()
 
 from app.ingestion.loader import load_document  # noqa: E402
