@@ -222,7 +222,14 @@ def test_rebuild_zero_documents_is_valid_empty_state(env):
     assert state["documents"] == {}
 
 
-def test_missing_state_is_stale(env):
+def test_missing_state_is_not_stale(env):
+    """A present index with no recorded snapshot is not forced-rebuilt.
+
+    A truly absent index (file gone) is handled by the startup missing-file
+    path; forcing a rebuild just because a snapshot is missing would fire a
+    network rebuild on every start against a seed corpus.
+    """
+
     service, tmp = env
 
     service.seed(USER_A, "a.txt", b"content", "text")
@@ -233,7 +240,7 @@ def test_missing_state_is_stale(env):
         "content_hash": "h", "version": 1,
     }
 
-    assert is_stale(manifest) is True
+    assert is_stale(manifest) is False
 
 
 def test_fresh_state_is_not_stale(env):
