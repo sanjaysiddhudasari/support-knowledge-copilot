@@ -14,21 +14,22 @@ logger = logging.getLogger(__name__)
 
 
 def _ensure_bm25_derived_index() -> None:
-    """Rebuild the derived BM25 index at startup when it is missing.
+    """Rebuild the derived BM25 index at startup when it is missing or stale.
 
     data/bm25/index.joblib is derived/cache state; the source of truth is
-    Supabase (Postgres list -> Storage download). On a fresh deploy the file
-    does not exist, so rebuild it from Storage. Once present it is kept fresh
-    by the reload_all_bm25 path on every upload/delete/rebuild.
+    Supabase (Postgres list -> Storage download). It is rebuilt when the file
+    is absent (fresh deploy) or when the recorded build snapshot no longer
+    matches the current documents (hash/version changed out-of-band).
 
     Tolerant: without Supabase credentials this is a no-op and dense-only
-    retrieval still works. Only rebuilds when the file is missing so normal
+    retrieval still works. A present, matching index is not rebuilt, so normal
     restarts (and tests) don't pay a network round-trip.
     """
 
     from app.retrieval.indexer import BM25_INDEX_PATH
+    from app.retrieval.rebuild import is_stale
 
-    if os.path.exists(BM25_INDEX_PATH):
+    if os.path.exists(BM25_INDEX_PATH) and not is_stale():
         return
 
     try:

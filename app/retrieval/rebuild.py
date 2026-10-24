@@ -58,11 +58,22 @@ def index_uploaded_file(
     manifest = _load_manifest()
     documents = manifest.setdefault("documents", {})
 
-    old_record = documents.get(filename, {})
+    # Manifest records are keyed by the stable document id so identical
+    # filenames across owners never overwrite one another's bookkeeping.
+    # document_id must be non-empty for Supabase uploads; legacy callers with
+    # a bare filename keep the old filename key for backward compatibility.
+    key = document_id or filename
+    old_record = documents.get(key, {})
     old_chunk_ids = old_record.get("chunk_ids", [])
 
     document = load_document(str(path))
-    chunks = chunk_document(document, version=version)
+
+    # Deterministic chunk ids per document: {document_id}_chunk_{n}. Different
+    # document ids never collide even with identical filenames. Legacy corpus
+    # (no document_id) keeps filename-based ids.
+    chunks = chunk_document(
+        document, version=version, chunk_id_base=document_id
+    )
 
     vector_store = VectorStore()
 
@@ -71,8 +82,10 @@ def index_uploaded_file(
 
     vector_store.upsert_chunks(chunks=chunks, document_id=document_id)
 
-    documents[filename] = {
+    documents[key] = {
+        "filename": filename,
         "content_hash": content_hash or old_record.get("content_hash", ""),
+        # flat list of string chunk ids
         "chunk_ids": [chunk.chunk_ids for chunk in chunks],
         "version": version,
         "file_type": document.file_type,
@@ -89,11 +102,14 @@ def remove_document_chunks(row: dict) -> int:
     manifest = _load_manifest()
     documents = manifest.setdefault("documents", {})
 
-    record = documents.pop(row["filename"], None)
+    document_id = row.get("id")
+    # Latest uploads record under document_id; legacy corpus under filename.
+    record = documents.pop(document_id, None) or documents.pop(
+        row.get("filename"), None
+    )
 
     vector_store = VectorStore()
     removed = 0
-    document_id = row.get("id")
 
     if document_id:
         # Primary path: delete by payload filter so a lost manifest (redeploy)
@@ -114,7 +130,7 @@ def _bm25_state(manifest: dict, documents: list[dict]) -> dict:
         "built_at": datetime.now(timezone.utc).isoformat(),
         "document_count": len(documents),
         "documents": {
-            row["filename"]: {
+            (row.get("id") or row["filename"]): {
                 "content_hash": row.get("content_hash"),
                 "version": row.get("version"),
             }
@@ -124,29 +140,34 @@ def _bm25_state(manifest: dict, documents: list[dict]) -> dict:
 
 
 def is_stale(manifest: dict | None = None) -> bool:
-    """True when BM25 build state does not match the manifest documents.
+    """True when a recorded BM25 build no longer matches current documents.
 
-    Compares the per-document hash/version snapshot recorded at build time
-    against the manifest's current document records. Missing state = stale.
+    Compares the per-document hash/version snapshot captured at build time
+    against the manifest's current document records. A missing snapshot is
+    NOT treated as stale here: a truly absent index is handled by the startup
+    missing-file path, and a present index built before snapshots existed
+    (seed corpus) should not force a network rebuild on every start.
     """
 
     manifest = manifest or _load_manifest()
-    state = manifest.get(BM25_STATE_KEY)
+    state = manifest.get(BM25_STATE_KEY) or {}
+    recorded = state.get("documents")
 
-    if not state or not state.get("documents"):
-        return bool(manifest.get("documents"))
+    if not recorded:
+        return False
 
     current = {
-        filename: (record.get("content_hash"), record.get("version"))
-        for filename, record in manifest.get("documents", {}).items()
+        key: (record.get("content_hash"), record.get("version"))
+        for key, record in manifest.get("documents", {}).items()
+        if key != BM25_STATE_KEY
     }
 
-    recorded = {
-        filename: (record.get("content_hash"), record.get("version"))
-        for filename, record in state["documents"].items()
+    rec = {
+        key: (record.get("content_hash"), record.get("version"))
+        for key, record in recorded.items()
     }
 
-    return current != recorded
+    return current != rec
 
 
 def rebuild_bm25(service, workdir: str) -> dict:
@@ -193,7 +214,11 @@ def rebuild_bm25(service, workdir: str) -> dict:
             loaded = load_document(str(document_path))
 
             chunks.extend(
-                chunk_document(loaded, version=row.get("version") or 1)
+                chunk_document(
+                    loaded,
+                    version=row.get("version") or 1,
+                    chunk_id_base=row.get("id"),
+                )
             )
 
         retriever = BM25Retriever()

@@ -72,9 +72,16 @@ def chunk_sections(
     start_number: int = 1,
     file_type: str | None = None,
     page: int | None = None,
+    chunk_id_base: str | None = None,
 ) -> list[Chunk]:
-    """Build heading-aware chunks from parsed sections."""
+    """Build heading-aware chunks from parsed sections.
 
+    ``chunk_id_base`` (a stable document id) makes chunk IDs unique per
+    document, so identical filenames across owners never collide. When omitted
+    the legacy ``source`` (filename) is used, keeping local-corpus IDs stable.
+    """
+
+    id_base = chunk_id_base or source
     chunks: list[Chunk] = []
 
     chunk_number = start_number
@@ -90,7 +97,7 @@ def chunk_sections(
 
         chunks.append(
             Chunk(
-                chunk_ids=f"{source}_chunk_{chunk_number}",
+                chunk_ids=f"{id_base}_chunk_{chunk_number}",
                 text=chunk_text,
                 source=source,
                 section=heading,
@@ -210,9 +217,11 @@ def chunk_text(
     file_type: str | None = None,
     page: int | None = None,
     max_chars: int = DEFAULT_MAX_CHARS,
+    chunk_id_base: str | None = None,
 ) -> list[Chunk]:
     """Generic paragraph-based chunking for non-heading formats (.txt, .pdf)."""
 
+    id_base = chunk_id_base or source
     chunks: list[Chunk] = []
 
     chunk_number = start_number
@@ -223,7 +232,7 @@ def chunk_text(
     ):
         chunks.append(
             Chunk(
-                chunk_ids=f"{source}_chunk_{chunk_number}",
+                chunk_ids=f"{id_base}_chunk_{chunk_number}",
                 text=group,
                 source=source,
                 section=section,
@@ -251,9 +260,11 @@ def chunk_pages(
     start_number: int = 1,
     file_type: str | None = FILE_TYPE_PDF,
     max_chars: int = DEFAULT_MAX_CHARS,
+    chunk_id_base: str | None = None,
 ) -> list[Chunk]:
     """Page-aware chunking for PDFs, preserving page numbers as metadata."""
 
+    id_base = chunk_id_base or source
     chunks: list[Chunk] = []
 
     chunk_number = start_number
@@ -266,7 +277,7 @@ def chunk_pages(
         ):
             chunks.append(
                 Chunk(
-                    chunk_ids=f"{source}_chunk_{chunk_number}",
+                    chunk_ids=f"{id_base}_chunk_{chunk_number}",
                     text=group,
                     source=source,
                     section=f"Page {page_number}",
@@ -288,6 +299,7 @@ def chunk_document(
     document: LoadedDocument,
     version: int = 1,
     start_number: int = 1,
+    chunk_id_base: str | None = None,
 ) -> list[Chunk]:
     """Chunk a loaded document using format-appropriate behaviour.
 
@@ -307,6 +319,7 @@ def chunk_document(
             version=version,
             start_number=start_number,
             file_type=document.file_type,
+            chunk_id_base=chunk_id_base,
         )
 
     if document.heading_aware:
@@ -320,6 +333,7 @@ def chunk_document(
             version=version,
             start_number=start_number,
             file_type=document.file_type,
+            chunk_id_base=chunk_id_base,
         )
 
     return chunk_text(
@@ -331,4 +345,5 @@ def chunk_document(
         version=version,
         start_number=start_number,
         file_type=document.file_type,
+        chunk_id_base=chunk_id_base,
     )
