@@ -148,7 +148,7 @@ class DocumentService:
 
         if existing is not None:
             return self._overwrite_current(
-                existing, clean_name, data, file_type
+                existing, clean_name, data, file_type, access_level
             )
 
         document_id = str(uuid.uuid4())
@@ -212,12 +212,13 @@ class DocumentService:
         filename: str,
         data: bytes,
         file_type: str,
+        access_level: str | None = None,
     ) -> dict:
         """Replace the bytes and bump the version of an existing document.
 
         Keeps the same document id and storage path so no orphan blob is left
         and historical references (chunk ids, citations) stay stable; only the
-        content hash, size, type, version and status move forward.
+        content hash, size, type, version, access level and status move forward.
         """
 
         path = existing["storage_path"]
@@ -231,6 +232,9 @@ class DocumentService:
             "version": int(existing.get("version") or 1) + 1,
             "status": "pending",
         }
+
+        if access_level is not None:
+            payload["access_level"] = access_level
 
         response = (
             self._client.table("documents")
@@ -248,6 +252,18 @@ class DocumentService:
             self._client.table("documents")
             .select("*")
             .eq("user_id", user_id)
+            .order("updated_at", desc=True)
+            .execute()
+        )
+
+        return _rows(response)
+
+    def list_all_documents(self) -> list[dict]:
+        """Every document, service path (admin/rebuild only). No user filter."""
+
+        response = (
+            self._client.table("documents")
+            .select("*")
             .order("updated_at", desc=True)
             .execute()
         )
@@ -288,6 +304,7 @@ class DocumentService:
         document_id: str,
         data: bytes,
         file_type: str,
+        access_level: str | None = None,
     ) -> dict:
         """Same document_id, new bytes: hash/version/status move forward."""
 
@@ -300,6 +317,9 @@ class DocumentService:
             "version": int(row.get("version") or 1) + 1,
             "status": "pending",
         }
+
+        if access_level is not None:
+            payload["access_level"] = access_level
 
         response = (
             self._client.table("documents")

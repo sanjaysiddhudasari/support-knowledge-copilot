@@ -39,36 +39,37 @@ class FakeService:
         self.fail_indexing = False
 
     # real-surface methods used by the API
-    def upload(self, user_id, filename, data, file_type):
-        import uuid
+    def upload(self, user_id, filename, data, file_type, access_level="public"):
+            import uuid
 
-        from app.services.document_storage import (
-            content_hash_bytes,
-            sanitize_filename,
-            storage_path,
-        )
+            from app.services.document_storage import (
+                content_hash_bytes,
+                sanitize_filename,
+                storage_path,
+            )
 
-        clean = sanitize_filename(filename)
-        document_id = str(uuid.uuid4())
-        path = storage_path(user_id, document_id, clean)
+            clean = sanitize_filename(filename)
+            document_id = str(uuid.uuid4())
+            path = storage_path(user_id, document_id, clean)
 
-        self.store.blobs[path] = bytes(data)
+            self.store.blobs[path] = bytes(data)
 
-        payload = {
-            "id": document_id,
-            "user_id": user_id,
-            "filename": clean,
-            "storage_path": path,
-            "file_type": file_type,
-            "size_bytes": len(data),
-            "content_hash": content_hash_bytes(data),
-            "version": 1,
-            "status": "pending",
-        }
+            payload = {
+                "id": document_id,
+                "user_id": user_id,
+                "filename": clean,
+                "storage_path": path,
+                "file_type": file_type,
+                "size_bytes": len(data),
+                "content_hash": content_hash_bytes(data),
+                "version": 1,
+                "access_level": access_level,
+                "status": "pending",
+            }
 
-        self.store.rows("documents").append(payload)
+            self.store.rows("documents").append(payload)
 
-        return dict(payload)
+            return dict(payload)
 
     def download(self, user_id, document_id, workdir):
         row = next(
@@ -370,11 +371,7 @@ def test_get_document_metadata(env):
 
     created = upload(client, "meta.txt", b"abc").json()
 
-    response = client.get(f"/api/documents/{created['document_id']}")
-
-    assert response.status_code == 200
-
-    body = response.json()
+    body = client.get(f"/api/documents/{created['document_id']}").json()
 
     assert body["filename"] == "meta.txt"
     assert body["size_bytes"] == 3

@@ -12,6 +12,7 @@ from app.ingestion.loader import (
     load_document,
 )
 from app.services.document_storage import (
+    DEFAULT_ACCESS_LEVEL,
     DocumentAccessDenied,
     DocumentError,
     DocumentNotFound,
@@ -38,12 +39,6 @@ def get_document_service() -> DocumentService:
         _service = DocumentService()
 
     return _service
-
-
-def _get_indexer():
-    return __import__(
-        "app.retrieval.indexer", fromlist=["Indexer"]
-    ).Indexer()
 
 
 def _index_documents(path: Path, version: int, content_hash: str | None):
@@ -144,6 +139,11 @@ async def upload_document(
                 filename=clean_name,
                 data=contents,
                 file_type=loaded.file_type,
+                # Postgres must reflect the access level actually enforced
+                # (parsed from the document's front matter / defaults).
+                access_level=loaded.metadata.get(
+                    "access_level", DEFAULT_ACCESS_LEVEL
+                ),
             )
         except DocumentError as error:
             raise HTTPException(503, f"Document storage failed: {error}")
