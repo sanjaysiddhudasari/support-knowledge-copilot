@@ -20,6 +20,7 @@ from app.ingestion.loader import load_document
 from app.retrieval.bm25 import BM25Retriever
 from app.retrieval.indexer import MANIFEST_PATH, BM25_INDEX_PATH
 from app.retrieval.vector_store import VectorStore
+from app.services.retrieval_service import reload_all_bm25
 from app.observability.tracing import span
 
 BM25_STATE_KEY = "bm25"
@@ -44,6 +45,7 @@ def index_uploaded_file(
     path: Path,
     version: int,
     content_hash: str | None = None,
+    document_id: str | None = None,
 ) -> list:
     """Chunk one uploaded file, replace its Qdrant chunks, update manifest.
 
@@ -67,7 +69,7 @@ def index_uploaded_file(
     if old_chunk_ids:
         vector_store.delete_chunks(old_chunk_ids)
 
-    vector_store.upsert_chunks(chunks=chunks)
+    vector_store.upsert_chunks(chunks=chunks, document_id=document_id)
 
     documents[filename] = {
         "content_hash": content_hash or old_record.get("content_hash", ""),
@@ -89,10 +91,16 @@ def remove_document_chunks(row: dict) -> int:
 
     record = documents.pop(row["filename"], None)
 
+    vector_store = VectorStore()
     removed = 0
+    document_id = row.get("id")
 
-    if record and record.get("chunk_ids"):
-        vector_store = VectorStore()
+    if document_id:
+        # Primary path: delete by payload filter so a lost manifest (redeploy)
+        # never leaks vectors. Chunk ids are only a fallback.
+        vector_store.delete_by_document(document_id)
+        removed = len(record["chunk_ids"]) if record else 0
+    elif record and record.get("chunk_ids"):
         vector_store.delete_chunks(record["chunk_ids"])
         removed = len(record["chunk_ids"])
 
@@ -141,12 +149,11 @@ def is_stale(manifest: dict | None = None) -> bool:
     return current != recorded
 
 
-def rebuild_bm25(service, admin_user_id: str, workdir: str) -> dict:
+def rebuild_bm25(service, workdir: str) -> dict:
     """Rebuild BM25 from durable documents.
 
-    Postgres lists the documents; Storage supplies the bytes; the normal
-    loader/chunker pipeline does the rest. Also validates staleness against
-    the state recorded in the manifest.
+    Postgres lists every document (service path, all owners); Storage
+    supplies the bytes; the normal loader/chunker pipeline does the rest.
     """
 
     with span(
@@ -155,7 +162,7 @@ def rebuild_bm25(service, admin_user_id: str, workdir: str) -> dict:
         tags=["ingestion", "bm25"],
         metadata={"trigger": "manual"},
     ) as run:
-        documents = service.list_documents(admin_user_id)
+        documents = service.list_all_documents()
 
         if not documents:
             # Valid empty state: BM25 with no documents retrieves nothing
@@ -170,6 +177,8 @@ def rebuild_bm25(service, admin_user_id: str, workdir: str) -> dict:
 
             run.add_metadata({"bm25_document_count": 0, "chunk_count": 0})
 
+            reload_all_bm25()
+
             return {
                 "status": "rebuilt",
                 "document_count": 0,
@@ -179,9 +188,7 @@ def rebuild_bm25(service, admin_user_id: str, workdir: str) -> dict:
         chunks = []
 
         for row in documents:
-            document_path = service.download(
-                admin_user_id, row["id"], workdir
-            )
+            document_path = service.download_all(row["id"], workdir)
 
             loaded = load_document(str(document_path))
 
@@ -205,6 +212,8 @@ def rebuild_bm25(service, admin_user_id: str, workdir: str) -> dict:
                 "chunk_count": len(chunks),
             }
         )
+
+        reload_all_bm25()
 
         return {
             "status": "rebuilt",

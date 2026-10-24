@@ -12,6 +12,7 @@ from app.ingestion.loader import (
     load_document,
 )
 from app.services.document_storage import (
+    DEFAULT_ACCESS_LEVEL,
     DocumentAccessDenied,
     DocumentError,
     DocumentNotFound,
@@ -40,13 +41,10 @@ def get_document_service() -> DocumentService:
     return _service
 
 
-def _get_indexer():
-    return __import__(
-        "app.retrieval.indexer", fromlist=["Indexer"]
-    ).Indexer()
-
-
-def _index_documents(path: Path, version: int, content_hash: str | None):
+def _index_documents(
+    path: Path, version: int, content_hash: str | None,
+    document_id: str | None = None,
+):
     """Chunk and index one uploaded file via the existing loaders/chunkers.
 
     Uses the per-file path (rebuild.index_uploaded_file), NOT
@@ -58,7 +56,8 @@ def _index_documents(path: Path, version: int, content_hash: str | None):
     from app.retrieval.rebuild import index_uploaded_file
 
     return index_uploaded_file(
-        path, version=version, content_hash=content_hash
+        path, version=version, content_hash=content_hash,
+        document_id=document_id,
     )
 
 
@@ -144,6 +143,11 @@ async def upload_document(
                 filename=clean_name,
                 data=contents,
                 file_type=loaded.file_type,
+                # Postgres must reflect the access level actually enforced
+                # (parsed from the document's front matter / defaults).
+                access_level=loaded.metadata.get(
+                    "access_level", DEFAULT_ACCESS_LEVEL
+                ),
             )
         except DocumentError as error:
             raise HTTPException(503, f"Document storage failed: {error}")
@@ -159,7 +163,15 @@ async def upload_document(
                 stored_path,
                 version=document["version"],
                 content_hash=document["content_hash"],
+                document_id=document["id"],
             )
+
+            # Keep the lexical index in step: a rebuild here is cheap at the
+            # current corpus size and makes new uploads searchable without a
+            # restart (the runtime retriever reloads on mtime change).
+            from app.retrieval.rebuild import rebuild_bm25
+
+            rebuild_bm25(service, tmp)
 
             service.mark_status(current_user.id, document["id"], "ready")
 
@@ -234,9 +246,12 @@ def delete_document(
         raise HTTPException(503, f"Document storage failed: {error}")
 
     try:
-        from app.retrieval.rebuild import remove_document_chunks
+        from app.retrieval.rebuild import rebuild_bm25, remove_document_chunks
 
-        remove_document_chunks(row)
+        with tempfile.TemporaryDirectory() as tmp:
+            remove_document_chunks(row)
+            # BM25 rebuild reflects the deletion so the doc stops surfacing.
+            rebuild_bm25(service, tmp)
     except Exception as error:
         # Metadata/blob deletion succeeded; index cleanup failed.
         raise HTTPException(
@@ -265,7 +280,7 @@ def reindex_documents(
 
     with tempfile.TemporaryDirectory() as tmp:
         try:
-            result = rebuild_bm25(service, current_user.id, tmp)
+            result = rebuild_bm25(service, tmp)
         except DocumentError as error:
             raise HTTPException(503, f"Reindex failed: {error}")
         except Exception as error:

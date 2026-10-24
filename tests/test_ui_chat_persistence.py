@@ -137,12 +137,17 @@ class FakeBackend:
         return self.add_message(url, kwargs.get("json") or {})
 
     def get(self, url, **kwargs):
-        if url.rstrip("/").endswith("/api/conversations"):
-            return FakeResponse(list(self.conversations))
+            # The combined UI (chat + document storage) also lists documents; the
+            # chat tests only care about conversations, so stub it as empty.
+            if url.rstrip("/").endswith("/api/documents"):
+                return FakeResponse([])
 
-        conversation_id = self._conversation_id_from(url)
+            if url.rstrip("/").endswith("/api/conversations"):
+                return FakeResponse(list(self.conversations))
 
-        return FakeResponse(list(self.messages.get(conversation_id, [])))
+            conversation_id = self._conversation_id_from(url)
+
+            return FakeResponse(list(self.messages.get(conversation_id, [])))
 
     def delete(self, url, **kwargs):
         conversation_id = self._conversation_id_from(url)

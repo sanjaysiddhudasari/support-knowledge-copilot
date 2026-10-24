@@ -1,4 +1,5 @@
 import os
+import weakref
 
 from app.retrieval.access_control import AccessController
 from app.retrieval.bm25 import BM25Retriever
@@ -9,14 +10,28 @@ from app.retrieval.reranker import Reranker
 
 BM25_INDEX_PATH = "data/bm25/index.joblib"
 
+# Live service instances that hold an in-memory BM25 index. rebuild.py
+# calls reload_all_bm25() after writing a new index so uploads/rebuilds are
+# visible without a restart. WeakSet avoids leaking retired instances.
+_LIVE_SERVICES: weakref.WeakSet = weakref.WeakSet()
+
+
+def reload_all_bm25() -> None:
+    """Reload the derived BM25 index on every live service (no restart)."""
+
+    for service in list(_LIVE_SERVICES):
+        service.reload_bm25()
+
 
 class RetrievalService:
 
     def __init__(self):
+        _LIVE_SERVICES.add(self)
+
         self.dense_retriever = DenseRetriever()
 
         self.bm25_retriever = BM25Retriever()
-        self.bm25_retriever.load(BM25_INDEX_PATH)
+        self._load_bm25()
 
         self.hybrid_retriever = HybridRetriever(
             dense_retriever=self.dense_retriever,
@@ -41,6 +56,22 @@ class RetrievalService:
         )
 
         self.access_controller = AccessController()
+
+    # -- BM25 lifecycle ----------------------------------------------------
+
+    def _load_bm25(self):
+        """Load the derived index, tolerating a missing/corrupt file."""
+
+        try:
+            self.bm25_retriever.load(BM25_INDEX_PATH)
+        except Exception:
+            # No index yet: leave it empty; hybrid falls back to dense-only.
+            self.bm25_retriever = BM25Retriever()
+
+    def reload_bm25(self):
+        """Reload the derived index after a rebuild (no restart needed)."""
+
+        self._load_bm25()
 
     def retrieve(
         self,

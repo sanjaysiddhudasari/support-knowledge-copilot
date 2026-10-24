@@ -10,6 +10,7 @@ untouched; this module only replaces "the file lives on Render's disk" with
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import uuid
 from pathlib import Path
@@ -17,7 +18,7 @@ from typing import Any
 
 from app.auth.client import supabase_admin
 
-BUCKET = "documents"
+BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "documents")
 DEFAULT_ACCESS_LEVEL = "public"
 
 
@@ -139,6 +140,18 @@ class DocumentService:
         """
 
         clean_name = sanitize_filename(filename)
+
+        # Same (user_id, filename) = a new revision, not a duplicate row
+        # (the DB enforces a unique constraint). Overwrite the blob at the
+        # SAME storage path and bump the version, so re-uploading a file the
+        # user already sent updates it instead of 500ing.
+        existing = self.find_by_filename(user_id, clean_name)
+
+        if existing is not None:
+            return self._overwrite_current(
+                existing, clean_name, data, file_type, access_level
+            )
+
         document_id = str(uuid.uuid4())
         path = storage_path(user_id, document_id, clean_name)
 
@@ -178,6 +191,61 @@ class DocumentService:
 
         return _row(response) or payload
 
+    def find_by_filename(
+        self, user_id: str, filename: str
+    ) -> dict | None:
+        """Metadata row for a user's filename, or None."""
+
+        response = (
+            self._client.table("documents")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("filename", sanitize_filename(filename))
+            .limit(1)
+            .execute()
+        )
+
+        return _row(response)
+
+    def _overwrite_current(
+        self,
+        existing: dict,
+        filename: str,
+        data: bytes,
+        file_type: str,
+        access_level: str | None = None,
+    ) -> dict:
+        """Replace the bytes and bump the version of an existing document.
+
+        Keeps the same document id and storage path so no orphan blob is left
+        and historical references (chunk ids, citations) stay stable; only the
+        content hash, size, type, version, access level and status move forward.
+        """
+
+        path = existing["storage_path"]
+
+        self._client.storage.from_(self._bucket).update(path, data)
+
+        payload = {
+            "content_hash": content_hash_bytes(data),
+            "size_bytes": len(data),
+            "file_type": file_type,
+            "version": int(existing.get("version") or 1) + 1,
+            "status": "pending",
+        }
+
+        if access_level is not None:
+            payload["access_level"] = access_level
+
+        response = (
+            self._client.table("documents")
+            .update(payload)
+            .eq("id", existing["id"])
+            .execute()
+        )
+
+        return _row(response) or {**existing, **payload}
+
     # -- reads ---------------------------------------------------------------
 
     def list_documents(self, user_id: str) -> list[dict]:
@@ -185,6 +253,18 @@ class DocumentService:
             self._client.table("documents")
             .select("*")
             .eq("user_id", user_id)
+            .order("updated_at", desc=True)
+            .execute()
+        )
+
+        return _rows(response)
+
+    def list_all_documents(self) -> list[dict]:
+        """Every document, service path (admin/rebuild only). No user filter."""
+
+        response = (
+            self._client.table("documents")
+            .select("*")
             .order("updated_at", desc=True)
             .execute()
         )
@@ -217,6 +297,39 @@ class DocumentService:
 
         return target
 
+    def download_all(self, document_id: str, destination_dir: str) -> Path:
+        """Download any document by id (service/rebuild path, no ownership).
+
+        Used by the BM25 rebuild, which must see every document regardless of
+        which admin uploaded it. Caller is responsibility-limited to rebuilt
+        batches; not exposed to per-user reads.
+        """
+
+        response = (
+            self._client.table("documents")
+            .select("*")
+            .eq("id", document_id)
+            .execute()
+        )
+
+        row = _row(response)
+
+        if row is None:
+            raise DocumentNotFound(document_id)
+
+        blob = (
+            self._client.storage.from_(self._bucket)
+            .download(row["storage_path"])
+        )
+
+        directory = Path(destination_dir)
+        directory.mkdir(parents=True, exist_ok=True)
+
+        target = directory / row["filename"]
+        target.write_bytes(blob)
+
+        return target
+
     # -- update / delete -----------------------------------------------------
 
     def replace_content(
@@ -225,6 +338,7 @@ class DocumentService:
         document_id: str,
         data: bytes,
         file_type: str,
+        access_level: str | None = None,
     ) -> dict:
         """Same document_id, new bytes: hash/version/status move forward."""
 
@@ -237,6 +351,9 @@ class DocumentService:
             "version": int(row.get("version") or 1) + 1,
             "status": "pending",
         }
+
+        if access_level is not None:
+            payload["access_level"] = access_level
 
         response = (
             self._client.table("documents")

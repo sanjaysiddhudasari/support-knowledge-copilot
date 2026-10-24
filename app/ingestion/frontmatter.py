@@ -6,9 +6,11 @@ implementation that lived in ``app/ingestion/ingest.py`` and
 ``app/retrieval/indexer.py``.
 """
 
+import logging
 import re
 from datetime import date
 
+logger = logging.getLogger(__name__)
 
 DEFAULT_LAST_UPDATED = date(2026, 8, 1)
 DEFAULT_DOCUMENT_TYPE = "guide"
@@ -18,6 +20,23 @@ _FRONT_MATTER_RE = re.compile(
     r"^---\s*\n(.*?)\n---\s*\n",
     re.DOTALL,
 )
+
+
+class FrontMatterError(ValueError):
+    """Front matter was declared but could not be parsed.
+
+    Raised instead of silently falling back to the default access level, so a
+    mangled header (e.g. markdown-escaped ``\\---`` / ``access\\_level``) cannot
+    quietly index a document at the wrong privilege.
+    """
+
+
+def frontmatter_declared(text: str) -> bool:
+    """True when the text starts with a front matter fence (or an escaped one)."""
+
+    stripped = text.lstrip()
+
+    return stripped.startswith("\\---") or stripped.startswith("---")
 
 
 def default_metadata() -> dict:
@@ -45,17 +64,26 @@ def remove_front_matter(text: str) -> str:
 
 
 def parse_front_matter(text: str) -> dict:
-    """Extract ``last_updated``, ``document_type`` and ``access_level``."""
+    """Extract ``last_updated``, ``document_type`` and ``access_level``.
 
-    metadata = default_metadata()
+    - No front matter at all: return the defaults (and let the caller warn).
+    - Front matter declared but unparsable: raise :class:`FrontMatterError`
+      instead of silently using the default access level.
+    """
 
-    if not text.startswith("---"):
-        return metadata
+    if not frontmatter_declared(text):
+        return default_metadata()
 
     match = _FRONT_MATTER_RE.match(text)
 
     if not match:
-        return metadata
+        raise FrontMatterError(
+            "Front matter is missing a closing '---' fence "
+            "or uses escaped (backslash) delimiters; "
+            "remove backslashes from '---' and 'key: value' lines."
+        )
+
+    metadata = default_metadata()
 
     for line in match.group(1).splitlines():
 

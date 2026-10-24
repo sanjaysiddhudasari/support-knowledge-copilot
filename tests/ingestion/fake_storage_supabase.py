@@ -61,6 +61,10 @@ class FakeQuery:
         self._desc = desc
         return self
 
+    def limit(self, count: int):
+        self._limit = count
+        return self
+
     def _matching(self):
         return [
             row
@@ -107,6 +111,9 @@ class FakeQuery:
                 reverse=self._desc,
             )
 
+        if getattr(self, "_limit", None) is not None:
+            rows = rows[: self._limit]
+
         return FakeResponse([self.store.clean(self.name, row) for row in rows])
 
     def _stamp(self, row: dict) -> None:
@@ -133,6 +140,13 @@ class FakeStorageBucket:
             raise RuntimeError("Object not found")
 
         return self.store.blobs[path]
+
+    def update(self, path: str, data: bytes):
+        # Overwrite semantics: the path must already exist.
+        if path not in self.store.blobs:
+            raise RuntimeError("Object not found")
+
+        self.store.blobs[path] = bytes(data)
 
     def remove(self, paths: list[str]):
         for path in paths:

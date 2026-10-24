@@ -1,14 +1,9 @@
-\---
+---
+access_level: public
+document_type: guide
+last_updated: 2026-10-02
+---
 
-access\_level: public
+# Public Test
 
-document\_type: guide
-
-last\_updated: 2026-10-02
-
-\---
-
-
-
-PUBLIC\_TEST\_SECRET: public-document-123
-
+This document tests that a public access level is indexed correctly.

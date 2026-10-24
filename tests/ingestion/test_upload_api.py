@@ -39,36 +39,37 @@ class FakeService:
         self.fail_indexing = False
 
     # real-surface methods used by the API
-    def upload(self, user_id, filename, data, file_type):
-        import uuid
+    def upload(self, user_id, filename, data, file_type, access_level="public"):
+            import uuid
 
-        from app.services.document_storage import (
-            content_hash_bytes,
-            sanitize_filename,
-            storage_path,
-        )
+            from app.services.document_storage import (
+                content_hash_bytes,
+                sanitize_filename,
+                storage_path,
+            )
 
-        clean = sanitize_filename(filename)
-        document_id = str(uuid.uuid4())
-        path = storage_path(user_id, document_id, clean)
+            clean = sanitize_filename(filename)
+            document_id = str(uuid.uuid4())
+            path = storage_path(user_id, document_id, clean)
 
-        self.store.blobs[path] = bytes(data)
+            self.store.blobs[path] = bytes(data)
 
-        payload = {
-            "id": document_id,
-            "user_id": user_id,
-            "filename": clean,
-            "storage_path": path,
-            "file_type": file_type,
-            "size_bytes": len(data),
-            "content_hash": content_hash_bytes(data),
-            "version": 1,
-            "status": "pending",
-        }
+            payload = {
+                "id": document_id,
+                "user_id": user_id,
+                "filename": clean,
+                "storage_path": path,
+                "file_type": file_type,
+                "size_bytes": len(data),
+                "content_hash": content_hash_bytes(data),
+                "version": 1,
+                "access_level": access_level,
+                "status": "pending",
+            }
 
-        self.store.rows("documents").append(payload)
+            self.store.rows("documents").append(payload)
 
-        return dict(payload)
+            return dict(payload)
 
     def download(self, user_id, document_id, workdir):
         row = next(
@@ -137,7 +138,7 @@ def env(monkeypatch, tmp_path):
         rebuild_module, "BM25_INDEX_PATH", str(tmp_path / "bm25.joblib")
     )
 
-    def fake_index(path, version, content_hash):
+    def fake_index(path, version, content_hash, document_id=None):
         if service.fail_indexing:
             raise RuntimeError("qdrant down")
 
@@ -164,6 +165,22 @@ def env(monkeypatch, tmp_path):
     monkeypatch.setattr(
         rebuild_module, "index_uploaded_file", fake_index
     )
+
+    # The upload route also triggers a BM25 rebuild; not exercising the
+    # real rebuild in endpoint tests (covered separately in test_bm25_rebuild).
+    monkeypatch.setattr(
+        rebuild_module,
+        "rebuild_bm25",
+        lambda service, workdir: {
+            "status": "rebuilt",
+            "document_count": 0,
+            "chunk_count": 0,
+        },
+    )
+
+    # Delete's Qdrant cleanup is exercised in test_bm25_rebuild; keep endpoint
+    # tests here free of the real vector/derived side effects.
+    monkeypatch.setattr(rebuild_module, "remove_document_chunks", lambda row: 0)
 
     app.dependency_overrides[get_current_user] = lambda: ADMIN
     app.dependency_overrides[get_document_service] = lambda: service
@@ -370,11 +387,7 @@ def test_get_document_metadata(env):
 
     created = upload(client, "meta.txt", b"abc").json()
 
-    response = client.get(f"/api/documents/{created['document_id']}")
-
-    assert response.status_code == 200
-
-    body = response.json()
+    body = client.get(f"/api/documents/{created['document_id']}").json()
 
     assert body["filename"] == "meta.txt"
     assert body["size_bytes"] == 3
