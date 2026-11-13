@@ -37,6 +37,7 @@ class AnswerGenerator:
         self,
         query: str,
         results,
+        history: list[dict] | None = None,
     ) -> GeneratedAnswer:
 
         context_started = time.perf_counter()
@@ -154,9 +155,22 @@ You can reset your password from Account Settings.
             inputs={"query": query, "context_chars": len(context)},
         ) as run:
 
+            messages = [{"role": "user", "content": prompt}]
+
+            # Include recent conversation history for multi-turn context.
+            # History turns are prepended so the LLM sees the conversation
+            # flow before the current query+context prompt.
+            if history:
+                history_messages = [
+                    {"role": turn["role"], "content": turn["content"]}
+                    for turn in history
+                    if turn.get("role") in ("user", "assistant") and turn.get("content")
+                ]
+                messages = history_messages + messages
+
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
             )
 
             answer = response.choices[0].message.content or ""

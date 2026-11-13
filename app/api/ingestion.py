@@ -41,6 +41,15 @@ def get_document_service() -> DocumentService:
     return _service
 
 
+def _invalidate_qa_cache() -> None:
+    """Invalidate query cache when documents change."""
+    try:
+        from app.api.routes import get_qa_service
+        get_qa_service().invalidate_cache()
+    except Exception:
+        pass
+
+
 def _index_documents(
     path: Path, version: int, content_hash: str | None,
     document_id: str | None = None,
@@ -200,6 +209,7 @@ async def upload_document(
             rebuild_bm25(service, tmp)
 
             service.mark_status(current_user.id, document["id"], "ready")
+            _invalidate_qa_cache()
 
         except Exception as error:
             service.mark_status(current_user.id, document["id"], "failed")
@@ -278,6 +288,7 @@ def delete_document(
             remove_document_chunks(row)
             # BM25 rebuild reflects the deletion so the doc stops surfacing.
             rebuild_bm25(service, tmp)
+            _invalidate_qa_cache()
     except Exception as error:
         # Metadata/blob deletion succeeded; index cleanup failed.
         raise HTTPException(
@@ -307,6 +318,7 @@ def reindex_documents(
     with tempfile.TemporaryDirectory() as tmp:
         try:
             result = rebuild_bm25(service, tmp)
+            _invalidate_qa_cache()
         except DocumentError as error:
             raise HTTPException(503, f"Reindex failed: {error}")
         except Exception as error:

@@ -8,6 +8,8 @@ from app.models.answer import Answerability, Citation
 from app.observability.tracing import span
 from app.services.retrieval_service import RetrievalService
 from app.services.confidence import ConfidenceScorer
+from app.services.cache import QueryCache
+from app.services.conversation_service import ConversationService
 
 
 class QAAnswerResult(TypedDict):
@@ -79,12 +81,17 @@ class QAService:
 
         self.confidence_scorer = ConfidenceScorer()
 
+        self.query_cache = QueryCache()
+
+        self.conversation_service = ConversationService()
+
     def answer(
         self,
         query: str,
-        user_access_level:str="public",
+        user_access_level: str = "public",
         user_id: str | None = None,
         query_id: str | None = None,
+        conversation_id: str | None = None,
     ) -> QAAnswerResult:
 
         started = time.perf_counter()
@@ -102,9 +109,19 @@ class QAService:
                 # Correlates this trace with the persisted conversation
                 # messages that share the same id. Identifiers only.
                 "query_id": query_id,
+                "conversation_id": conversation_id,
             },
             inputs={"query": query},
         ) as run:
+
+            cached = self.query_cache.get(
+                query, user_access_level, conversation_id
+            )
+            if cached is not None:
+                run.add_tags(["cached"])
+                return _finish(
+                    run, started, strategy, cached
+                )
 
             results = self.retrieval_service.retrieve(
                 query=query,
@@ -145,10 +162,23 @@ class QAService:
                     },
                 )
 
+            # Fetch conversation history for multi-turn context
+            history = []
+            if conversation_id and user_id:
+                try:
+                    history = self.conversation_service.get_recent_messages(
+                        user_id=user_id,
+                        conversation_id=conversation_id,
+                    )
+                except Exception:
+                    # Gracefully degrade to single-turn if message history lookup fails
+                    history = []
+
             generated_answer = (
                 self.answer_generator.generate(
                     query=query,
                     results=results,
+                    history=history,
                 )
             )
 
@@ -177,15 +207,22 @@ class QAService:
                 confidence["confidence"]
             )
 
-            return _finish(
-                run,
-                started,
-                strategy,
-                {
-                    "answer": generated_answer.answer,
-                    "citations": generated_answer.citations,
-                    "answerability": generated_answer.answerability,
-                    "confidence": generated_answer.confidence,
-                    "confidence_breakdown": confidence,
-                },
+            result = {
+                "answer": generated_answer.answer,
+                "citations": generated_answer.citations,
+                "answerability": generated_answer.answerability,
+                "confidence": generated_answer.confidence,
+                "confidence_breakdown": confidence,
+            }
+
+            self.query_cache.set(
+                query, user_access_level, result, conversation_id
             )
+
+            return _finish(
+                run, started, strategy, result
+            )
+
+    def invalidate_cache(self):
+        """Clear the query cache (e.g. after a document upload)."""
+        self.query_cache.invalidate()

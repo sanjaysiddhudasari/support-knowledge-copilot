@@ -165,7 +165,7 @@ def fetch_me(token: str):
     return response.json()
 
 
-def ask_question(query: str, query_id: str | None = None):
+def ask_question(query: str, query_id: str | None = None, conversation_id: str | None = None):
     """Return ``(data, error)``. Never raises.
 
     ``query_id`` is forwarded so the RAG trace and the persisted conversation
@@ -176,6 +176,8 @@ def ask_question(query: str, query_id: str | None = None):
 
     if query_id:
         payload["query_id"] = query_id
+    if conversation_id:
+        payload["conversation_id"] = conversation_id
 
     try:
         response = requests.post(
@@ -470,6 +472,23 @@ with st.sidebar:
                 refresh_conversation_list(conversation_api)
                 st.rerun()
 
+    current_msgs = get_messages(st.session_state)
+    if current_msgs:
+        formatted = []
+        for m in current_msgs:
+            if not m.get("content"):
+                continue
+            role = "User" if m.get("role") == "user" else "Assistant"
+            formatted.append(f"### {role}\n\n{m.get('content', '')}")
+        export_text = "# Conversation Export\n\n" + "\n\n".join(formatted)
+        st.download_button(
+            "📥 Export Chat",
+            data=export_text,
+            file_name="conversation_export.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+
     st.divider()
 
     st.markdown("**📚 Knowledge Base**")
@@ -659,7 +678,7 @@ if query:
             expanded=False,
         ) as status:
 
-            data, error = ask_question(query, query_id)
+            data, error = ask_question(query, query_id, conversation_id)
 
             if error:
                 status.update(

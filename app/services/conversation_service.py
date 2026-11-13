@@ -320,3 +320,31 @@ class ConversationService:
             .eq("id", conversation["id"])
             .execute()
         )
+
+    def get_recent_messages(
+        self,
+        user_id: str,
+        conversation_id: str,
+        limit: int = 6,
+    ) -> list[dict]:
+        """Return the most recent messages for context-aware generation.
+
+        Returns up to ``limit`` messages (most recent last) so the generator
+        can include conversation history. Only ``role`` and ``content`` are
+        used by the caller.
+        """
+        self._require_owned(user_id, conversation_id)
+
+        response = (
+            self.client.table(MESSAGES_TABLE)
+            .select("role, content")
+            .eq("conversation_id", conversation_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+
+        rows = _rows(response)
+        # Reverse so they're in chronological order (oldest first)
+        rows.reverse()
+        return rows

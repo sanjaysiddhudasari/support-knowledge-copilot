@@ -28,6 +28,8 @@ class QueryRequest(BaseModel):
     # conversation's user + assistant messages and attached to the LangSmith
     # trace for this query, so a stored message maps to one RAG trace.
     query_id: str | None = None
+    # Optional conversation id for multi-turn conversational context.
+    conversation_id: str | None = None
 
 
 @router.get("/me")
@@ -51,6 +53,9 @@ def query(
     if request.query_id:
         kwargs["query_id"] = request.query_id
 
+    if request.conversation_id:
+        kwargs["conversation_id"] = request.conversation_id
+
     result = get_qa_service().answer(**kwargs)
 
     return {
@@ -62,4 +67,5 @@ def query(
         ],
         "confidence": result["confidence"],
         "query_id": request.query_id,
+        "conversation_id": request.conversation_id,
     }
