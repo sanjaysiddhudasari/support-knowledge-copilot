@@ -33,50 +33,23 @@ class AnswerGenerator:
 
         self.model = model
 
-    def generate(
-        self,
-        query: str,
-        results,
-        history: list[dict] | None = None,
-    ) -> GeneratedAnswer:
-
-        context_started = time.perf_counter()
-
-        with span(
-            "Context Preparation",
-            run_type="chain",
-            tags=["rag", "context"],
-            metadata={"chunk_count": len(results)},
-        ) as preparation:
-
-            context_parts = []
-
-            for result in results:
-
-                chunk = result["chunk"]
-
-                context_parts.append(
-                    f"""
+    def _build_context(self, results) -> str:
+        context_parts = []
+        for result in results:
+            chunk = result["chunk"]
+            context_parts.append(
+                f"""
 [CHUNK_ID: {chunk.chunk_ids}]
 [SECTION: {chunk.section}]
 [SOURCE: {chunk.source}]
 
 {chunk.text}
 """
-                )
-
-            context = "\n\n".join(context_parts)
-
-            preparation.add_metadata(
-                {
-                    "context_chars": len(context),
-                    "latency_ms": round(
-                        (time.perf_counter() - context_started) * 1000, 2
-                    ),
-                }
             )
+        return "\n\n".join(context_parts)
 
-        prompt = f"""
+    def _build_prompt(self, query: str, context: str) -> str:
+        return f"""
 You are a support knowledge assistant.
 
 Answer the user's question using ONLY the provided
@@ -141,6 +114,48 @@ You can reset your password from Account Settings.
 [password-policy.md_chunk_2]
 """
 
+    def _build_messages(
+        self, prompt: str, history: list[dict] | None = None
+    ) -> list[dict]:
+        messages = [{"role": "user", "content": prompt}]
+        if history:
+            history_messages = [
+                {"role": turn["role"], "content": turn["content"]}
+                for turn in history
+                if turn.get("role") in ("user", "assistant") and turn.get("content")
+            ]
+            messages = history_messages + messages
+        return messages
+
+    def generate(
+        self,
+        query: str,
+        results,
+        history: list[dict] | None = None,
+    ) -> GeneratedAnswer:
+
+        context_started = time.perf_counter()
+
+        with span(
+            "Context Preparation",
+            run_type="chain",
+            tags=["rag", "context"],
+            metadata={"chunk_count": len(results)},
+        ) as preparation:
+
+            context = self._build_context(results)
+
+            preparation.add_metadata(
+                {
+                    "context_chars": len(context),
+                    "latency_ms": round(
+                        (time.perf_counter() - context_started) * 1000, 2
+                    ),
+                }
+            )
+
+        prompt = self._build_prompt(query, context)
+
         generation_started = time.perf_counter()
 
         with span(
@@ -155,18 +170,7 @@ You can reset your password from Account Settings.
             inputs={"query": query, "context_chars": len(context)},
         ) as run:
 
-            messages = [{"role": "user", "content": prompt}]
-
-            # Include recent conversation history for multi-turn context.
-            # History turns are prepended so the LLM sees the conversation
-            # flow before the current query+context prompt.
-            if history:
-                history_messages = [
-                    {"role": turn["role"], "content": turn["content"]}
-                    for turn in history
-                    if turn.get("role") in ("user", "assistant") and turn.get("content")
-                ]
-                messages = history_messages + messages
+            messages = self._build_messages(prompt, history)
 
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -207,3 +211,23 @@ You can reset your password from Account Settings.
                 answer=answer,
                 citations=citations,
             )
+
+    def generate_stream(
+        self,
+        query: str,
+        results,
+        history: list[dict] | None = None,
+    ):
+        """Yield generated answer tokens progressively as they stream from the LLM."""
+        context = self._build_context(results)
+        prompt = self._build_prompt(query, context)
+        messages = self._build_messages(prompt, history)
+
+        response_stream = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            stream=True,
+        )
+        for chunk in response_stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content

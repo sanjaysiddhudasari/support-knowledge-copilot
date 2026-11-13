@@ -226,3 +226,45 @@ class QAService:
     def invalidate_cache(self):
         """Clear the query cache (e.g. after a document upload)."""
         self.query_cache.invalidate()
+
+
+    def answer_stream(
+        self,
+        query: str,
+        user_access_level: str = "public",
+        user_id: str | None = None,
+        conversation_id: str | None = None,
+    ):
+        """Yield generated answer tokens progressively as they stream from the LLM."""
+        results = self.retrieval_service.retrieve(
+            query=query,
+            top_k=5,
+            candidate_k=20,
+            user_access_level=user_access_level,
+        )
+
+        answerability = self.answerability_detector.check(
+            query=query,
+            results=results,
+        )
+
+        if not answerability.answerable:
+            yield "I couldn't find enough information in the available documentation to verify an answer to this question."
+            return
+
+        history = []
+        if conversation_id and user_id:
+            try:
+                history = self.conversation_service.get_recent_messages(
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                )
+            except Exception:
+                history = []
+
+        for token in self.answer_generator.generate_stream(
+            query=query,
+            results=results,
+            history=history,
+        ):
+            yield token

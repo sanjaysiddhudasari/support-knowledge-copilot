@@ -10,6 +10,7 @@ from app.api.routes import router
 from app.api.conversations import router as conversations_router
 from app.api.ingestion import router as ingestion_router
 from app.api.auth import router as auth_router
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -64,15 +65,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv("CORS_ORIGINS", "http://localhost:8501,http://127.0.0.1:8501").split(",")
-    if origin.strip()
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

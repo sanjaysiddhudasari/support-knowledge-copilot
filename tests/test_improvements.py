@@ -2,6 +2,8 @@ import time
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
+from app.config import Settings
+from app.core.rate_limiter import RateLimiter
 from app.main import app
 from app.models.chunk import Chunk
 from app.models.retrieval import RetrievalResult
@@ -176,5 +178,91 @@ def test_qa_service_cache_and_multiturn():
             conversation_id="conv-123",
         )
         assert result2["answer"] == "Generated answer"
-        # generate should still have been called only once due to cache!
         assert mock_gen.generate.call_count == 1
+
+
+def test_settings_validation():
+    s = Settings(
+        CORS_ORIGINS="https://app.example.com, https://test.example.com",
+        RATE_LIMIT_PER_MINUTE="50",
+    )
+    assert s.cors_origins == ["https://app.example.com", "https://test.example.com"]
+    assert s.rate_limit_per_minute == 50
+
+
+def test_rate_limiter_allows_and_throttles():
+    limiter = RateLimiter(requests_per_minute=2)
+    mock_request = MagicMock()
+    mock_request.headers.get.return_value = "192.168.1.100"
+
+    # 1st request: OK
+    limiter(mock_request)
+    # 2nd request: OK
+    limiter(mock_request)
+
+    # 3rd request: Throttled (429)
+    from fastapi import HTTPException
+    import pytest
+    with pytest.raises(HTTPException) as exc_info:
+        limiter(mock_request)
+    assert exc_info.value.status_code == 429
+    assert "Retry-After" in exc_info.value.headers
+
+
+def test_streaming_answer_endpoint():
+    client = TestClient(app)
+    from app.auth.models import User
+    from app.auth.dependencies import get_current_user
+
+    mock_user = User(id="user-test", email="test@example.com", access_level="public")
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+
+    try:
+        with patch("app.api.routes.get_qa_service") as mock_get_qa:
+            mock_qa = mock_get_qa.return_value
+            mock_qa.answer_stream.return_value = iter(["Hello", " ", "World", "!"])
+
+            response = client.post(
+                "/api/query/stream",
+                json={"query": "test streaming"},
+            )
+            assert response.status_code == 200
+            assert response.text == "Hello World!"
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_message_feedback_endpoint():
+    client = TestClient(app)
+    from app.auth.models import User
+    from app.auth.dependencies import get_current_user
+    from app.api.conversations import get_conversation_service
+
+    mock_user = User(id="user-test", email="test@example.com", access_level="public")
+    mock_conv_service = MagicMock()
+    mock_conv_service.submit_feedback.return_value = {
+        "id": "msg-123",
+        "feedback": "positive",
+        "feedback_comment": "Great answer",
+    }
+
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+    app.dependency_overrides[get_conversation_service] = lambda: mock_conv_service
+
+    try:
+        response = client.post(
+            "/api/conversations/conv-123/messages/msg-123/feedback",
+            json={"feedback": "positive", "feedback_comment": "Great answer"},
+        )
+        assert response.status_code == 200
+        assert response.json()["feedback"] == "positive"
+        mock_conv_service.submit_feedback.assert_called_once_with(
+            user_id="user-test",
+            conversation_id="conv-123",
+            message_id="msg-123",
+            feedback="positive",
+            feedback_comment="Great answer",
+        )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_conversation_service, None)
