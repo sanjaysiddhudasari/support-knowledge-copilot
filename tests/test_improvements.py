@@ -266,3 +266,17 @@ def test_message_feedback_endpoint():
     finally:
         app.dependency_overrides.pop(get_current_user, None)
         app.dependency_overrides.pop(get_conversation_service, None)
+
+
+
+def test_query_processor_normalization_and_expansion():
+    from app.retrieval.query_processor import QueryProcessor
+
+    qp = QueryProcessor()
+    processed = qp.process("   How do I configure   SSO and MFA?   ")
+
+    assert processed.normalized == "How do I configure SSO and MFA?"
+    assert "Single Sign-On (SSO)" in processed.expanded
+    assert "Multi-Factor Authentication (MFA)" in processed.expanded
+    assert "sso" in processed.keywords
+    assert "mfa" in processed.keywords

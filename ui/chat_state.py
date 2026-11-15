@@ -154,6 +154,8 @@ def add_assistant_message(
     citations=None,
     error: str | None = None,
     query_id: str | None = None,
+    message_id: str | None = None,
+    feedback: str | None = None,
 ) -> dict:
     """Append an assistant turn, storing its own metadata snapshot.
 
@@ -171,6 +173,10 @@ def add_assistant_message(
         "query_id": query_id or uuid.uuid4().hex,
         "created_at": time.time(),
     }
+    if message_id:
+        message["id"] = message_id
+    if feedback:
+        message["feedback"] = feedback
 
     get_messages(state).append(message)
 
@@ -227,11 +233,16 @@ def message_from_row(row: dict) -> dict:
         "created_at": row.get("created_at"),
     }
 
+    if "id" in row:
+        message["id"] = row.get("id")
+
     if role == "assistant":
         message["confidence"] = normalize_confidence(row.get("confidence"))
         message["answerable"] = normalize_answerable(row.get("answerable"))
         message["citations"] = _citations_from_row(row.get("citations"))
         message["error"] = None
+        if "feedback" in row:
+            message["feedback"] = row.get("feedback")
 
     return message
 

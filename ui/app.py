@@ -197,6 +197,20 @@ def ask_question(query: str, query_id: str | None = None, conversation_id: str |
     except ValueError:
         return None, "The API returned an unreadable response."
 
+def submit_feedback(conversation_id: str, message_id: str, feedback: str):
+    url = f"{API_BASE_URL}/api/conversations/{conversation_id}/messages/{message_id}/feedback"
+    try:
+        response = requests.post(
+            url,
+            json={"feedback": feedback},
+            headers={"Authorization": f"Bearer {st.session_state[TOKEN_KEY]}"},
+            timeout=10,
+        )
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
 
 # ==================================================
 # Rendering
@@ -262,6 +276,26 @@ def render_message_body(message: dict):
         f"Answerable {'✓' if answerable else '✗'}</div>",
         unsafe_allow_html=True,
     )
+
+    message_id = message.get("id")
+    conv_id = st.session_state.get(CURRENT_CONVERSATION_KEY)
+    if message_id and conv_id and not message.get("error"):
+        col1, col2, col3 = st.columns([0.08, 0.08, 0.84])
+        current_feedback = message.get("feedback")
+        with col1:
+            if st.button("👍", key=f"thumb_up_{message_id}", help="Accurate and helpful"):
+                if submit_feedback(conv_id, message_id, "positive"):
+                    message["feedback"] = "positive"
+                    st.rerun()
+        with col2:
+            if st.button("👎", key=f"thumb_down_{message_id}", help="Inaccurate or unhelpful"):
+                if submit_feedback(conv_id, message_id, "negative"):
+                    message["feedback"] = "negative"
+                    st.rerun()
+        if current_feedback:
+            with col3:
+                label = "✓ Marked as helpful" if current_feedback == "positive" else "✗ Marked as not helpful"
+                st.caption(label)
 
     persistence_error = message.get("persistence_error")
 
@@ -723,6 +757,9 @@ if query:
                     answerable=data.get("answerable"),
                     citations=citations,
                 )
+
+                if stored and "id" in stored:
+                    message["id"] = stored["id"]
 
                 # A successful answer is never hidden by a storage failure.
                 # The notice rides on the message so it survives the rerun.
