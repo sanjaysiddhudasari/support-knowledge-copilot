@@ -8,7 +8,7 @@ from app.config import settings
 from app.core.rate_limiter import RateLimiter
 
 router = APIRouter(
-    prefix="/api",
+    prefix="",
     tags=["QA"],
 )
 

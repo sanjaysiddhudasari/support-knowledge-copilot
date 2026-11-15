@@ -19,7 +19,7 @@ class AnalyticsService:
         # 1. Fetch recent messages
         messages_res = (
             self.client.table("messages")
-            .select("id, role, content, confidence, answerable, citations, feedback, feedback_comment, created_at")
+            .select("id, conversation_id, role, content, confidence, answerable, citations, feedback, feedback_comment, created_at")
             .order("created_at", desc=True)
             .limit(1000)
             .execute()
@@ -45,6 +45,13 @@ class AnalyticsService:
         ]
         avg_confidence = round(sum(confidences) / len(confidences), 4) if confidences else 0.0
 
+        high_conf = sum(1 for c in confidences if c >= 0.8)
+        med_conf = sum(1 for c in confidences if 0.5 <= c < 0.8)
+        low_conf = sum(1 for c in confidences if c < 0.5)
+
+        # Unique conversations in sample
+        conversation_ids = {m.get("conversation_id") for m in messages if m.get("conversation_id")}
+
         # Feedback
         positive_feedback = sum(1 for m in assistant_messages if m.get("feedback") == "positive")
         negative_feedback = sum(1 for m in assistant_messages if m.get("feedback") == "negative")
@@ -62,6 +69,17 @@ class AnalyticsService:
             }
             for m in assistant_messages
             if m.get("feedback") == "negative"
+        ][:5]
+
+        # Recent unanswerable queries (knowledge gaps)
+        recent_unanswerable = [
+            {
+                "message_id": m.get("id"),
+                "answer_preview": (m.get("content") or "")[:120] + ("..." if len(m.get("content") or "") > 120 else ""),
+                "created_at": m.get("created_at"),
+            }
+            for m in assistant_messages
+            if m.get("answerable") is False
         ][:5]
 
         # Top cited sources
@@ -96,10 +114,17 @@ class AnalyticsService:
             "queries": {
                 "total_queries": total_queries,
                 "total_answers": total_answers,
+                "total_conversations": len(conversation_ids),
                 "answerable_count": answerable_count,
                 "unanswerable_count": unanswerable_count,
                 "answerability_rate": answerability_rate,
                 "average_confidence": avg_confidence,
+                "confidence_distribution": {
+                    "high": high_conf,
+                    "medium": med_conf,
+                    "low": low_conf,
+                },
+                "recent_unanswerable": recent_unanswerable,
             },
             "feedback": {
                 "positive": positive_feedback,

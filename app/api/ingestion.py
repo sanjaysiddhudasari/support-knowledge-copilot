@@ -20,7 +20,7 @@ from app.services.document_storage import (
 )
 
 router = APIRouter(
-    prefix="/api",
+    prefix="",
     tags=["Documents"],
 )
 

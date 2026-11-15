@@ -21,7 +21,7 @@ from app.services.conversation_service import (
 )
 
 router = APIRouter(
-    prefix="/api/conversations",
+    prefix="/conversations",
     tags=["Conversations"],
 )
 

@@ -359,3 +359,132 @@ def test_admin_analytics_forbidden_for_public():
         assert "Admin access required" in response.json()["detail"]
     finally:
         app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_api_v1_versioning_and_backward_compatibility():
+    """Verify that both /api/v1/ and legacy /api/ routes resolve correctly."""
+    client = TestClient(app)
+    from app.auth.models import User
+    from app.auth.dependencies import get_current_user
+    from app.api.analytics import get_analytics_service
+
+    mock_admin = User(id="admin-1", email="admin@example.com", access_level="admin")
+    mock_analytics_service = MagicMock()
+    mock_analytics_service.get_system_analytics.return_value = {"status": "ok", "queries": {"total_queries": 10}}
+
+    app.dependency_overrides[get_current_user] = lambda: mock_admin
+    app.dependency_overrides[get_analytics_service] = lambda: mock_analytics_service
+
+    try:
+        # 1. Analytics endpoint available on both v1 and legacy
+        v1_resp = client.get("/api/v1/admin/analytics")
+        assert v1_resp.status_code == 200
+        assert v1_resp.json()["queries"]["total_queries"] == 10
+
+        legacy_resp = client.get("/api/admin/analytics")
+        assert legacy_resp.status_code == 200
+        assert legacy_resp.json()["queries"]["total_queries"] == 10
+
+        # 2. Me endpoint available on both v1 and legacy
+        v1_me = client.get("/api/v1/me")
+        assert v1_me.status_code == 200
+        assert v1_me.json()["email"] == "admin@example.com"
+
+        legacy_me = client.get("/api/me")
+        assert legacy_me.status_code == 200
+        assert legacy_me.json()["email"] == "admin@example.com"
+
+        # 3. Documents endpoint available on both v1 and legacy
+        from app.api.ingestion import get_document_service
+        mock_doc_service = MagicMock()
+        mock_doc_service.list_documents.return_value = []
+        app.dependency_overrides[get_document_service] = lambda: mock_doc_service
+
+        v1_docs = client.get("/api/v1/documents")
+        assert v1_docs.status_code == 200
+        assert v1_docs.json() == []
+
+        legacy_docs = client.get("/api/documents")
+        assert legacy_docs.status_code == 200
+        assert legacy_docs.json() == []
+
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_analytics_service, None)
+        app.dependency_overrides.pop(get_document_service, None)
+
+
+def test_analytics_service_expanded_metrics():
+    """Verify that AnalyticsService computes confidence distributions, gaps, and unique conversations."""
+    from app.services.analytics_service import AnalyticsService
+
+    class FakeTable:
+        def __init__(self, data):
+            self.data = data
+        def select(self, *args, **kwargs):
+            return self
+        def order(self, *args, **kwargs):
+            return self
+        def limit(self, *args, **kwargs):
+            return self
+        def execute(self):
+            return MagicMock(data=self.data)
+
+    mock_messages = [
+        {"id": "m1", "conversation_id": "c1", "role": "user", "content": "hello"},
+        {
+            "id": "m2",
+            "conversation_id": "c1",
+            "role": "assistant",
+            "content": "Hi there!",
+            "confidence": 0.95,
+            "answerable": True,
+            "citations": [{"source": "guide.pdf", "chunk_id": "guide.pdf_chunk_1"}],
+            "feedback": "positive",
+        },
+        {"id": "m3", "conversation_id": "c2", "role": "user", "content": "How to cook lasagna?"},
+        {
+            "id": "m4",
+            "conversation_id": "c2",
+            "role": "assistant",
+            "content": "I do not know how to cook lasagna.",
+            "confidence": 0.20,
+            "answerable": False,
+            "citations": [],
+            "feedback": "negative",
+            "feedback_comment": "irrelevant topic",
+        },
+    ]
+
+    mock_docs = [
+        {"id": "d1", "file_type": "pdf", "status": "indexed", "size_bytes": 10240},
+        {"id": "d2", "file_type": "docx", "status": "indexed", "size_bytes": 5120},
+    ]
+
+    mock_client = MagicMock()
+    mock_client.table.side_effect = lambda table_name: FakeTable(
+        mock_messages if table_name == "messages" else mock_docs
+    )
+
+    service = AnalyticsService(client=mock_client)
+    res = service.get_system_analytics()
+
+    assert res["queries"]["total_queries"] == 2
+    assert res["queries"]["total_answers"] == 2
+    assert res["queries"]["total_conversations"] == 2
+    assert res["queries"]["answerable_count"] == 1
+    assert res["queries"]["unanswerable_count"] == 1
+    assert res["queries"]["confidence_distribution"]["high"] == 1
+    assert res["queries"]["confidence_distribution"]["low"] == 1
+    assert len(res["queries"]["recent_unanswerable"]) == 1
+    assert "lasagna" in res["queries"]["recent_unanswerable"][0]["answer_preview"]
+
+    assert res["feedback"]["positive"] == 1
+    assert res["feedback"]["negative"] == 1
+    assert res["feedback"]["satisfaction_rate"] == 0.5
+    assert len(res["feedback"]["recent_negative_feedback"]) == 1
+    assert res["feedback"]["recent_negative_feedback"][0]["comment"] == "irrelevant topic"
+
+    assert res["documents"]["total_count"] == 2
+    assert res["documents"]["by_file_type"]["pdf"] == 1
+    assert res["documents"]["by_file_type"]["docx"] == 1

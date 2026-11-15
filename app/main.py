@@ -3,7 +3,7 @@ import os
 import tempfile
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
@@ -74,12 +74,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# API v1 Router (Primary versioned API)
+api_v1_router = APIRouter(prefix="/api/v1")
+api_v1_router.include_router(auth_router)
+api_v1_router.include_router(router)
+api_v1_router.include_router(conversations_router)
+api_v1_router.include_router(ingestion_router)
+api_v1_router.include_router(analytics_router)
 
-app.include_router(router)
-app.include_router(conversations_router)
-app.include_router(ingestion_router)
-app.include_router(auth_router)
-app.include_router(analytics_router)
+# Legacy unversioned API router for backward compatibility
+legacy_api_router = APIRouter(prefix="/api")
+legacy_api_router.include_router(auth_router)
+legacy_api_router.include_router(router)
+legacy_api_router.include_router(conversations_router)
+legacy_api_router.include_router(ingestion_router)
+legacy_api_router.include_router(analytics_router)
+
+app.include_router(api_v1_router)
+app.include_router(legacy_api_router)
 
 
 @app.get("/health")

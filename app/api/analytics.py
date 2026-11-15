@@ -6,7 +6,7 @@ from app.auth.models import User
 from app.services.analytics_service import AnalyticsService
 
 router = APIRouter(
-    prefix="/api/admin/analytics",
+    prefix="/admin/analytics",
     tags=["Analytics"],
 )
 
