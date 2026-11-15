@@ -4,7 +4,7 @@ import time
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from app.models.answer import GeneratedAnswer
+from app.models.answer import Answerability, GeneratedAnswer
 from app.generation.citation_parser import parse_citations
 from app.evaluation.citation_utils import (
     deduplicate_citations,
@@ -62,6 +62,11 @@ Rules:
 4. Do not include unrelated facts from the documentation.
 5. If the documentation does not contain enough information,
    clearly say that you could not verify the answer.
+
+ANSWERABILITY RULE:
+If the provided documentation does NOT contain enough information to answer the question, or is insufficient, begin your response with:
+[UNANSWERABLE]
+followed by an explanation of what information is missing.
 
 CITATION RULES:
 
@@ -193,8 +198,21 @@ You can reset your password from Account Settings.
 
             run.add_metadata(generation_metadata)
 
-            citations=parse_citations(answer)
-            citations=deduplicate_citations(citations=citations)
+            # Determine answerability from response prefix
+            if answer.strip().startswith("[UNANSWERABLE]"):
+                clean_explanation = answer.replace("[UNANSWERABLE]", "", 1).strip()
+                answerability = Answerability(
+                    answerable=False,
+                    explanation=clean_explanation or "The available documentation is insufficient to answer the question.",
+                )
+                citations = []
+            else:
+                answerability = Answerability(
+                    answerable=True,
+                    explanation="Documentation contains sufficient evidence to answer the question.",
+                )
+                citations=parse_citations(answer)
+                citations=deduplicate_citations(citations=citations)
 
             run.add_outputs(
                 {
@@ -210,6 +228,7 @@ You can reset your password from Account Settings.
             return GeneratedAnswer(
                 answer=answer,
                 citations=citations,
+                answerability=answerability,
             )
 
     def generate_stream(

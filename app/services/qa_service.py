@@ -1,6 +1,7 @@
 import time
 from typing import TypedDict
 
+from app.config import settings
 from app.generation.answerability import AnswerabilityDetector
 from app.generation.citation_verifier import CitationVerifier
 from app.generation.generator import AnswerGenerator
@@ -85,6 +86,8 @@ class QAService:
 
         self.conversation_service = ConversationService()
 
+        self.merge_answerability = getattr(settings, "merge_answerability", True)
+
     def answer(
         self,
         query: str,
@@ -130,17 +133,39 @@ class QAService:
                 user_access_level=user_access_level,
             )
 
-            answerability = (
-                self.answerability_detector.check(
+            # Fetch conversation history for multi-turn context
+            history = []
+            if conversation_id and user_id:
+                try:
+                    history = self.conversation_service.get_recent_messages(
+                        user_id=user_id,
+                        conversation_id=conversation_id,
+                    )
+                except Exception:
+                    # Gracefully degrade to single-turn if message history lookup fails
+                    history = []
+
+            # Determine answerability: either merged with generation or via separate detector
+            if self.merge_answerability:
+                generated_answer = self.answer_generator.generate(
                     query=query,
                     results=results,
+                    history=history,
                 )
-            )
+                answerability = generated_answer.answerability or Answerability(
+                    answerable=True,
+                    explanation="Documentation contains sufficient evidence to answer the question.",
+                )
+            else:
+                answerability = (
+                    self.answerability_detector.check(
+                        query=query,
+                        results=results,
+                    )
+                )
 
-            # Do not generate an answer when the
-            # documentation is insufficient.
+            # Do not proceed with citation verification if unanswerable
             if not answerability.answerable:
-
                 return _finish(
                     run,
                     started,
@@ -162,25 +187,14 @@ class QAService:
                     },
                 )
 
-            # Fetch conversation history for multi-turn context
-            history = []
-            if conversation_id and user_id:
-                try:
-                    history = self.conversation_service.get_recent_messages(
-                        user_id=user_id,
-                        conversation_id=conversation_id,
+            if not self.merge_answerability:
+                generated_answer = (
+                    self.answer_generator.generate(
+                        query=query,
+                        results=results,
+                        history=history,
                     )
-                except Exception:
-                    # Gracefully degrade to single-turn if message history lookup fails
-                    history = []
-
-            generated_answer = (
-                self.answer_generator.generate(
-                    query=query,
-                    results=results,
-                    history=history,
                 )
-            )
 
             verified_citations = (
                 self.citation_verifier.verify(
@@ -227,7 +241,6 @@ class QAService:
         """Clear the query cache (e.g. after a document upload)."""
         self.query_cache.invalidate()
 
-
     def answer_stream(
         self,
         query: str,
@@ -242,15 +255,6 @@ class QAService:
             candidate_k=20,
             user_access_level=user_access_level,
         )
-
-        answerability = self.answerability_detector.check(
-            query=query,
-            results=results,
-        )
-
-        if not answerability.answerable:
-            yield "I couldn't find enough information in the available documentation to verify an answer to this question."
-            return
 
         history = []
         if conversation_id and user_id:

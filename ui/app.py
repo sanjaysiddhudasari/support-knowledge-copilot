@@ -644,6 +644,38 @@ with st.sidebar:
                     except requests.RequestException as error:
                         st.error(f"Delete failed: {error}")
 
+    if user_level.lower() == "admin":
+        with st.expander("📊 System Analytics"):
+            try:
+                analytics_resp = requests.get(
+                    f"{API_BASE_URL}/api/admin/analytics",
+                    headers={"Authorization": f"Bearer {st.session_state[TOKEN_KEY]}"},
+                    timeout=15,
+                )
+                if analytics_resp.status_code == 200:
+                    adata = analytics_resp.json()
+                    qdata = adata.get("queries", {})
+                    fdata = adata.get("feedback", {})
+                    ddata = adata.get("documents", {})
+
+                    st.markdown("**Quality Metrics**")
+                    st.caption(f"Queries: {qdata.get('total_queries', 0)} | Answerable: {qdata.get('answerability_rate', 0):.0%}")
+                    st.caption(f"Avg Confidence: {qdata.get('average_confidence', 0):.0%}")
+                    st.caption(f"User Satisfaction: {fdata.get('satisfaction_rate', 1.0):.0%} (👍 {fdata.get('positive', 0)} / 👎 {fdata.get('negative', 0)})")
+
+                    st.markdown("**Knowledge Base**")
+                    st.caption(f"Docs: {ddata.get('total_count', 0)} ({ddata.get('total_size_kb', 0)} KB)")
+
+                    top_s = adata.get("sources", {}).get("top_cited", [])
+                    if top_s:
+                        st.markdown("**Top Cited**")
+                        for s in top_s[:3]:
+                            st.caption(f"• {s['source']}: {s['citations_count']}x")
+                else:
+                    st.caption("Unable to load analytics.")
+            except Exception:
+                st.caption("Analytics service unavailable.")
+
     st.divider()
 
     st.markdown(

@@ -10,6 +10,7 @@ from app.api.routes import router
 from app.api.conversations import router as conversations_router
 from app.api.ingestion import router as ingestion_router
 from app.api.auth import router as auth_router
+from app.api.analytics import router as analytics_router
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,7 @@ app.include_router(router)
 app.include_router(conversations_router)
 app.include_router(ingestion_router)
 app.include_router(auth_router)
+app.include_router(analytics_router)
 
 
 @app.get("/health")

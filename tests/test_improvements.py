@@ -280,3 +280,82 @@ def test_query_processor_normalization_and_expansion():
     assert "Multi-Factor Authentication (MFA)" in processed.expanded
     assert "sso" in processed.keywords
     assert "mfa" in processed.keywords
+
+
+
+def test_merged_answerability_unanswerable():
+    from app.generation.generator import AnswerGenerator
+
+    mock_client = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = "[UNANSWERABLE] The document does not describe backup restore procedures."
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
+
+    gen = AnswerGenerator.__new__(AnswerGenerator)
+    gen.client = mock_client
+    gen.model = "test-model"
+
+    chunk_mock = MagicMock()
+    chunk_mock.chunk_ids = "chunk_1"
+    chunk_mock.section = "Overview"
+    chunk_mock.source = "overview.md"
+    chunk_mock.text = "Evidence content"
+
+    result = gen.generate("how to restore backup?", [{"chunk": chunk_mock}])
+    assert result.answerability.answerable is False
+    assert "backup restore procedures" in result.answerability.explanation
+    assert result.citations == []
+
+
+def test_admin_analytics_endpoint():
+    client = TestClient(app)
+    from app.auth.models import User
+    from app.auth.dependencies import get_current_user
+    from app.api.analytics import get_analytics_service
+
+    mock_admin = User(id="admin-1", email="admin@example.com", access_level="admin")
+    mock_analytics_service = MagicMock()
+    mock_analytics_service.get_system_analytics.return_value = {
+        "queries": {
+            "total_queries": 42,
+            "total_answers": 40,
+            "answerability_rate": 0.95,
+            "average_confidence": 0.88,
+        },
+        "feedback": {
+            "positive": 18,
+            "negative": 2,
+            "satisfaction_rate": 0.9,
+        },
+        "sources": {"top_cited": []},
+        "documents": {"total_count": 5, "total_size_kb": 120},
+    }
+
+    app.dependency_overrides[get_current_user] = lambda: mock_admin
+    app.dependency_overrides[get_analytics_service] = lambda: mock_analytics_service
+
+    try:
+        response = client.get("/api/admin/analytics")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["queries"]["total_queries"] == 42
+        assert data["feedback"]["satisfaction_rate"] == 0.9
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_analytics_service, None)
+
+
+def test_admin_analytics_forbidden_for_public():
+    client = TestClient(app)
+    from app.auth.models import User
+    from app.auth.dependencies import get_current_user
+
+    mock_user = User(id="user-1", email="user@example.com", access_level="public")
+    app.dependency_overrides[get_current_user] = lambda: mock_user
+
+    try:
+        response = client.get("/api/admin/analytics")
+        assert response.status_code == 403
+        assert "Admin access required" in response.json()["detail"]
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)

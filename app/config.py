@@ -59,6 +59,12 @@ class Settings(BaseSettings):
     top_k: int = Field(default=5, validation_alias="TOP_K")
     candidate_k: int = Field(default=20, validation_alias="CANDIDATE_K")
 
+    # Optimization: Merge Answerability check into Generation (3 LLM calls -> 2)
+    merge_answerability: bool = Field(
+        default=True,
+        validation_alias="MERGE_ANSWERABILITY",
+    )
+
     # Cache Settings
     cache_ttl_seconds: int = Field(
         default=300, validation_alias="CACHE_TTL_SECONDS"
