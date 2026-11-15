@@ -25,9 +25,9 @@ jobs:
         env:
           QDRANT_URL: ""
           QDRANT_API_KEY: ""
-          SUPABASE_URL: ""
-          SUPABASE_KEY: ""
-          DEEPSEEK_API_KEY: ""
+          SUPABASE_URL: "https://example.supabase.co"
+          SUPABASE_KEY: "test-anon-key"
+          DEEPSEEK_API_KEY: "test-deepseek-key"
         run: pytest tests/test_improvements.py -v
 
   ui-tests:
