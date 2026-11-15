@@ -21,7 +21,7 @@ from app.services.conversation_service import (
 )
 
 router = APIRouter(
-    prefix="/api/conversations",
+    prefix="/conversations",
     tags=["Conversations"],
 )
 
@@ -177,6 +177,42 @@ def add_message(
             confidence=payload.confidence,
             answerable=payload.answerable,
             citations=payload.citations,
+        )
+    except ConversationValidationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        )
+    except ConversationNotFound:
+        raise _not_found()
+    except Exception:
+        raise _failure()
+
+
+
+class FeedbackRequest(BaseModel):
+    feedback: str
+    feedback_comment: str | None = None
+
+
+@router.post(
+    "/{conversation_id}/messages/{message_id}/feedback",
+    status_code=status.HTTP_200_OK,
+)
+def submit_message_feedback(
+    conversation_id: str,
+    message_id: str,
+    payload: FeedbackRequest,
+    current_user: User = Depends(get_current_user),
+    service: ConversationService = Depends(get_conversation_service),
+):
+    try:
+        return service.submit_feedback(
+            user_id=current_user.id,
+            conversation_id=conversation_id,
+            message_id=message_id,
+            feedback=payload.feedback,
+            feedback_comment=payload.feedback_comment,
         )
     except ConversationValidationError as error:
         raise HTTPException(

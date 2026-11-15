@@ -12,8 +12,11 @@ BM25 build state lives under its ``bm25`` key instead of a second manifest.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from app.ingestion.chunker import chunk_document
 from app.ingestion.loader import load_document
@@ -207,19 +210,30 @@ def rebuild_bm25(service, workdir: str) -> dict:
             }
 
         chunks = []
+        skipped = []
 
         for row in documents:
-            document_path = service.download_all(row["id"], workdir)
-
-            loaded = load_document(str(document_path))
-
-            chunks.extend(
-                chunk_document(
-                    loaded,
-                    version=row.get("version") or 1,
-                    chunk_id_base=row.get("id"),
+            try:
+                document_path = service.download_all(row["id"], workdir)
+                loaded = load_document(str(document_path))
+                chunks.extend(
+                    chunk_document(
+                        loaded,
+                        version=row.get("version") or 1,
+                        chunk_id_base=row.get("id"),
+                    )
                 )
-            )
+            except Exception as error:
+                # One corrupt unparsable document must not fail the whole
+                # rebuild (which would also block new uploads). Skip it, log
+                # loudly, and continue with the healthy corpus.
+                skipped.append(row.get("filename"))
+                logger.warning(
+                    "BM25 rebuild: skipping unloadable document %r: %s",
+                    row.get("filename"),
+                    error,
+                )
+                continue
 
         retriever = BM25Retriever()
         retriever.build_index(chunks)
@@ -235,6 +249,7 @@ def rebuild_bm25(service, workdir: str) -> dict:
             {
                 "bm25_document_count": len(documents),
                 "chunk_count": len(chunks),
+                "skipped_document_count": len(skipped),
             }
         )
 
@@ -244,4 +259,5 @@ def rebuild_bm25(service, workdir: str) -> dict:
             "status": "rebuilt",
             "document_count": len(documents),
             "chunk_count": len(chunks),
+            "skipped_documents": skipped,
         }

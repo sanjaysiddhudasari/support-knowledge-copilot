@@ -432,3 +432,25 @@ def test_remove_document_chunks_deletes_by_payload_without_manifest(tmp_path, en
     remove_document_chunks({"filename": "gone.txt", "id": "doc-xyz"})
 
     assert deleted_by_doc == ["doc-xyz"]
+
+
+def test_rebuild_skips_one_bad_document_without_failing(env):
+    """A corrupt/unloadable document must not abort the whole BM25 rebuild."""
+
+    service, tmp = env
+
+    service.seed(USER_A, "good.txt", b"healthy content alpha", "text")
+
+    # Stored bytes that start with an escaped front-matter fence but have
+    # no closing block -> current parser rejects them (fail loud).
+    bad = b"\\" + b"---escaped front matter with no closing fence"
+    service.seed(USER_A, "bad.md", bad, "markdown")
+
+    result = rebuild_bm25(service, str(tmp))
+
+    assert "bad.md" in result["skipped_documents"]
+
+    retriever = BM25Retriever()
+    retriever.load(rebuild.BM25_INDEX_PATH)
+
+    assert any(c.source == "good.txt" for c in retriever.chunks)

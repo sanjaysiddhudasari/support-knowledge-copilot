@@ -4,6 +4,7 @@ import weakref
 from app.retrieval.access_control import AccessController
 from app.retrieval.bm25 import BM25Retriever
 from app.retrieval.hybrid import HybridRetriever
+from app.retrieval.query_processor import QueryProcessor
 from app.retrieval.retriever import DenseRetriever
 from app.retrieval.reranker import Reranker
 
@@ -56,6 +57,7 @@ class RetrievalService:
         )
 
         self.access_controller = AccessController()
+        self.query_processor = QueryProcessor()
 
     # -- BM25 lifecycle ----------------------------------------------------
 
@@ -82,10 +84,11 @@ class RetrievalService:
         user_access_level: str = "public",
     ):
         strategy = strategy or self.strategy
+        processed_query = self.query_processor.process(query).expanded
 
         if strategy == "dense":
             results = self.dense_retriever.retrieve(
-                query=query,
+                query=processed_query,
                 top_k=top_k,
             )
 
@@ -96,7 +99,7 @@ class RetrievalService:
 
         if strategy == "bm25":
             results = self.bm25_retriever.retrieve(
-                query=query,
+                query=processed_query,
                 top_k=top_k,
             )
 
@@ -107,7 +110,7 @@ class RetrievalService:
 
         if strategy == "hybrid":
             results = self.hybrid_retriever.retrieve(
-                query=query,
+                query=processed_query,
                 top_k=top_k,
                 candidate_k=candidate_k,
             )
@@ -122,7 +125,7 @@ class RetrievalService:
                 self.reranker = Reranker()
 
             hybrid_results = self.hybrid_retriever.retrieve(
-                query=query,
+                query=processed_query,
                 top_k=top_k,
                 candidate_k=candidate_k,
             )
@@ -133,7 +136,7 @@ class RetrievalService:
             )
 
             return self.reranker.rerank(
-                query,
+                processed_query,
                 filtered_results,
                 top_k=top_k,
             )
@@ -147,24 +150,26 @@ class RetrievalService:
         query: str,
         candidate_k: int = 20,
     ):
+        processed_query = self.query_processor.process(query).expanded
+
         dense_results = self.dense_retriever.retrieve(
-            query=query,
+            query=processed_query,
             top_k=candidate_k,
         )
 
         bm25_results = self.bm25_retriever.retrieve(
-            query=query,
+            query=processed_query,
             top_k=candidate_k,
         )
 
         hybrid_results = self.hybrid_retriever.retrieve(
-            query=query,
+            query=processed_query,
             top_k=candidate_k,
         )
 
         reranked_results = (
             self.reranker.rerank(
-                query=query,
+                query=processed_query,
                 results=hybrid_results,
                 top_k=candidate_k,
             )

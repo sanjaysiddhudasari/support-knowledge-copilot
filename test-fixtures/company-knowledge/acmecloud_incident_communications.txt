@@ -1,0 +1,40 @@
+Synthetic test content — AcmeCloud is fictional. Do not treat these procedures as real company policy.
+
+ACMECLOUD_INCIDENT_TEST_5K6S
+
+Incident Communications and Customer Status Updates
+
+Purpose
+Explains how AcmeCloud notifies customers and internal teams during
+service incidents.
+
+Scope
+Applies to any incident that affects production availability or customer
+data. Owner is the Incident Manager rotation, idm@acmecloud.example
+(fictional). Last reviewed 2026-10-02.
+
+Severity definitions
+SEV-1: total service outage or a data integrity issue affecting many
+customers. SEV-2: degraded service for a subset of customers. SEV-3: minor
+functional issue with a workaround.
+
+Communication cadence
+SEV-1 incidents require a public status update every 30 minutes and a
+customer-facing notice from the support team within 15 minutes of
+declaration. SEV-2 updates post every 60 minutes. SEV-3 updates post once a
+day or when resolved.
+
+Customer reporting
+Customer-facing status updates are drafted by the Incident Manager and
+published to the status page. Named CSMs notify top accounts directly.
+Internal chat must never contradict the published status; all updates cite
+the incident marker ACMECLOUD_INCIDENT_TEST_5K6S so teams can correlate.
+
+Resolution
+An incident is closed when monitoring is stable for 2 consecutive hours.
+Postmortem (5 whys) is required for every SEV-1 within 5 business days.
+
+Escalation
+If an incident is not resolved within 4 hours at SEV-1, it escalates to the
+VP of Engineering. Do not wait for a customer to report; open the incident on
+first reliable signal.

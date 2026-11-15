@@ -4,7 +4,7 @@ import time
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from app.models.answer import GeneratedAnswer
+from app.models.answer import Answerability, GeneratedAnswer
 from app.generation.citation_parser import parse_citations
 from app.evaluation.citation_utils import (
     deduplicate_citations,
@@ -33,49 +33,23 @@ class AnswerGenerator:
 
         self.model = model
 
-    def generate(
-        self,
-        query: str,
-        results,
-    ) -> GeneratedAnswer:
-
-        context_started = time.perf_counter()
-
-        with span(
-            "Context Preparation",
-            run_type="chain",
-            tags=["rag", "context"],
-            metadata={"chunk_count": len(results)},
-        ) as preparation:
-
-            context_parts = []
-
-            for result in results:
-
-                chunk = result["chunk"]
-
-                context_parts.append(
-                    f"""
+    def _build_context(self, results) -> str:
+        context_parts = []
+        for result in results:
+            chunk = result["chunk"]
+            context_parts.append(
+                f"""
 [CHUNK_ID: {chunk.chunk_ids}]
 [SECTION: {chunk.section}]
 [SOURCE: {chunk.source}]
 
 {chunk.text}
 """
-                )
-
-            context = "\n\n".join(context_parts)
-
-            preparation.add_metadata(
-                {
-                    "context_chars": len(context),
-                    "latency_ms": round(
-                        (time.perf_counter() - context_started) * 1000, 2
-                    ),
-                }
             )
+        return "\n\n".join(context_parts)
 
-        prompt = f"""
+    def _build_prompt(self, query: str, context: str) -> str:
+        return f"""
 You are a support knowledge assistant.
 
 Answer the user's question using ONLY the provided
@@ -88,6 +62,11 @@ Rules:
 4. Do not include unrelated facts from the documentation.
 5. If the documentation does not contain enough information,
    clearly say that you could not verify the answer.
+
+ANSWERABILITY RULE:
+If the provided documentation does NOT contain enough information to answer the question, or is insufficient, begin your response with:
+[UNANSWERABLE]
+followed by an explanation of what information is missing.
 
 CITATION RULES:
 
@@ -140,6 +119,48 @@ You can reset your password from Account Settings.
 [password-policy.md_chunk_2]
 """
 
+    def _build_messages(
+        self, prompt: str, history: list[dict] | None = None
+    ) -> list[dict]:
+        messages = [{"role": "user", "content": prompt}]
+        if history:
+            history_messages = [
+                {"role": turn["role"], "content": turn["content"]}
+                for turn in history
+                if turn.get("role") in ("user", "assistant") and turn.get("content")
+            ]
+            messages = history_messages + messages
+        return messages
+
+    def generate(
+        self,
+        query: str,
+        results,
+        history: list[dict] | None = None,
+    ) -> GeneratedAnswer:
+
+        context_started = time.perf_counter()
+
+        with span(
+            "Context Preparation",
+            run_type="chain",
+            tags=["rag", "context"],
+            metadata={"chunk_count": len(results)},
+        ) as preparation:
+
+            context = self._build_context(results)
+
+            preparation.add_metadata(
+                {
+                    "context_chars": len(context),
+                    "latency_ms": round(
+                        (time.perf_counter() - context_started) * 1000, 2
+                    ),
+                }
+            )
+
+        prompt = self._build_prompt(query, context)
+
         generation_started = time.perf_counter()
 
         with span(
@@ -154,9 +175,11 @@ You can reset your password from Account Settings.
             inputs={"query": query, "context_chars": len(context)},
         ) as run:
 
+            messages = self._build_messages(prompt, history)
+
             response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
             )
 
             answer = response.choices[0].message.content or ""
@@ -175,8 +198,21 @@ You can reset your password from Account Settings.
 
             run.add_metadata(generation_metadata)
 
-            citations=parse_citations(answer)
-            citations=deduplicate_citations(citations=citations)
+            # Determine answerability from response prefix
+            if answer.strip().startswith("[UNANSWERABLE]"):
+                clean_explanation = answer.replace("[UNANSWERABLE]", "", 1).strip()
+                answerability = Answerability(
+                    answerable=False,
+                    explanation=clean_explanation or "The available documentation is insufficient to answer the question.",
+                )
+                citations = []
+            else:
+                answerability = Answerability(
+                    answerable=True,
+                    explanation="Documentation contains sufficient evidence to answer the question.",
+                )
+                citations=parse_citations(answer)
+                citations=deduplicate_citations(citations=citations)
 
             run.add_outputs(
                 {
@@ -192,4 +228,25 @@ You can reset your password from Account Settings.
             return GeneratedAnswer(
                 answer=answer,
                 citations=citations,
+                answerability=answerability,
             )
+
+    def generate_stream(
+        self,
+        query: str,
+        results,
+        history: list[dict] | None = None,
+    ):
+        """Yield generated answer tokens progressively as they stream from the LLM."""
+        context = self._build_context(results)
+        prompt = self._build_prompt(query, context)
+        messages = self._build_messages(prompt, history)
+
+        response_stream = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            stream=True,
+        )
+        for chunk in response_stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content

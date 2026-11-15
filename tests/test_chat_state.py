@@ -7,7 +7,7 @@ citations, so older answers never get re-rendered with the latest query's data.
 import pathlib
 import sys
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "ui"))
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / "ui"))
 
 from chat_state import (  # noqa: E402
     FORMAT_META,

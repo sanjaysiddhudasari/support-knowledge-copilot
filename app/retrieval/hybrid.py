@@ -1,3 +1,4 @@
+import concurrent.futures
 import time
 from collections import defaultdict
 
@@ -38,15 +39,19 @@ class HybridRetriever:
             inputs={"query": query},
         ) as run:
 
-            dense_results = self.dense_retriever.retrieve(
-                query,
-                top_k=candidate_k,
-            )
-
-            bm25_results = self.bm25_retriever.retrieve(
-                query,
-                top_k=candidate_k,
-            )
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                dense_future = executor.submit(
+                    self.dense_retriever.retrieve,
+                    query,
+                    top_k=candidate_k,
+                )
+                bm25_future = executor.submit(
+                    self.bm25_retriever.retrieve,
+                    query,
+                    top_k=candidate_k,
+                )
+                dense_results = dense_future.result()
+                bm25_results = bm25_future.result()
 
             fused = self._rrf(
                 dense_results,

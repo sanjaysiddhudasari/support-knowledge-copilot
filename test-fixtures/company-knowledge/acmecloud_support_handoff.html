@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Service-Level Escalation</title></head>
+<body>
+<h1>Service-Level Escalation and Support Handoff</h1>
+<p>Synthetic test content — AcmeCloud is fictional. Do not treat these procedures as real company policy.</p>
+<p>ACMECLOUD_HANDOFF_TEST_3M8V</p>
+<h2>Purpose and scope</h2>
+<p>Explains how AcmeCloud escalates tickets and hands work between
+support levels. Owner is Support Operations
+(supportops@acmecloud.example, fictional). Last reviewed 2026-10-02.</p>
+<h2>Support levels</h2>
+<ul>
+<li><b>L1:</b> triage, known solutions, password resets.</li>
+<li><b>L2:</b> product configuration and reproducible bugs.</li>
+<li><b>L3:</b> engineering deep-dives and code-level fixes.</li>
+</ul>
+<h2>Escalation criteria</h2>
+<p>L1 escalates to L2 when a ticket is unresolved for 1 business day or the
+issue reproduces on a clean environment. L2 escalates to L3 when a bug
+requires source access or the resolution would change documented behavior.</p>
+<h2>Handoff requirements</h2>
+<p>A handoff is only accepted when the ticket notes include a summary, the
+steps already tried, logs or reproduction steps, and the customer impact.
+Escalation targets: L1 to L2 within 1 business day; L2 to L3 within 2
+business days; SEV-1 tickets escalate immediately to the Incident Manager.</p>
+<p>Handoff marker detail: ACMECLOUD_HANDOFF_TEST_3M8V must be present in
+the summary so the ticket can be located for indexing checks.</p>
+<h2>FAQ</h2>
+<p>Q: Where does the handoff marker appear? A: In the introduction and in the
+handoff requirements above.</p>
+</body></html>

@@ -320,3 +320,65 @@ class ConversationService:
             .eq("id", conversation["id"])
             .execute()
         )
+
+    def get_recent_messages(
+        self,
+        user_id: str,
+        conversation_id: str,
+        limit: int = 6,
+    ) -> list[dict]:
+        """Return the most recent messages for context-aware generation.
+
+        Returns up to ``limit`` messages (most recent last) so the generator
+        can include conversation history. Only ``role`` and ``content`` are
+        used by the caller.
+        """
+        self._require_owned(user_id, conversation_id)
+
+        response = (
+            self.client.table(MESSAGES_TABLE)
+            .select("role, content")
+            .eq("conversation_id", conversation_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+
+        rows = _rows(response)
+        # Reverse so they're in chronological order (oldest first)
+        rows.reverse()
+        return rows
+
+
+    def submit_feedback(
+        self,
+        user_id: str,
+        conversation_id: str,
+        message_id: str,
+        feedback: str,
+        feedback_comment: str | None = None,
+    ) -> dict:
+        """Record positive or negative feedback on a message in an owned conversation."""
+        if feedback not in ("positive", "negative"):
+            raise ConversationValidationError(f"Invalid feedback rating: {feedback!r}")
+
+        self._require_owned(user_id, conversation_id)
+
+        update_payload = {
+            "feedback": feedback,
+            "feedback_comment": feedback_comment,
+            "feedback_at": utc_now(),
+        }
+
+        response = (
+            self.client.table(MESSAGES_TABLE)
+            .update(update_payload)
+            .eq("id", message_id)
+            .eq("conversation_id", conversation_id)
+            .execute()
+        )
+
+        row = _row(response)
+        if row is None:
+            raise ConversationNotFound(f"Message {message_id} not found in conversation {conversation_id}")
+        return row

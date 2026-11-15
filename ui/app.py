@@ -1,3 +1,4 @@
+import json
 import mimetypes
 import os
 import uuid
@@ -99,6 +100,7 @@ DOCS_LIST_URL = f"{API_BASE_URL}/api/documents"
 LOGIN_URL = f"{API_BASE_URL}/api/auth/login"
 SIGNUP_URL = f"{API_BASE_URL}/api/auth/signup"
 ME_URL = f"{API_BASE_URL}/api/me"
+ANALYTICS_URL = f"{API_BASE_URL}/api/v1/admin/analytics"
 
 SUPPORTED_FORMATS = "MD · TXT · PDF · DOCX · HTML"
 
@@ -165,7 +167,7 @@ def fetch_me(token: str):
     return response.json()
 
 
-def ask_question(query: str, query_id: str | None = None):
+def ask_question(query: str, query_id: str | None = None, conversation_id: str | None = None):
     """Return ``(data, error)``. Never raises.
 
     ``query_id`` is forwarded so the RAG trace and the persisted conversation
@@ -176,6 +178,8 @@ def ask_question(query: str, query_id: str | None = None):
 
     if query_id:
         payload["query_id"] = query_id
+    if conversation_id:
+        payload["conversation_id"] = conversation_id
 
     try:
         response = requests.post(
@@ -195,10 +199,158 @@ def ask_question(query: str, query_id: str | None = None):
     except ValueError:
         return None, "The API returned an unreadable response."
 
+def submit_feedback(conversation_id: str, message_id: str, feedback: str):
+    url = f"{API_BASE_URL}/api/conversations/{conversation_id}/messages/{message_id}/feedback"
+    try:
+        response = requests.post(
+            url,
+            json={"feedback": feedback},
+            headers={"Authorization": f"Bearer {st.session_state[TOKEN_KEY]}"},
+            timeout=10,
+        )
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
 
 # ==================================================
 # Rendering
 # ==================================================
+
+
+
+
+def render_analytics_dashboard(api_base_url: str, token: str):
+    header_col1, header_col2 = st.columns([0.8, 0.2])
+    with header_col1:
+        st.subheader("📊 System Performance & Quality Analytics")
+        st.caption("Real-time telemetry, knowledge base health, citation metrics, and user satisfaction.")
+    with header_col2:
+        if st.button("🔄 Refresh Data", key="refresh_analytics_btn", use_container_width=True):
+            st.rerun()
+
+    try:
+        resp = requests.get(
+            f"{api_base_url}/api/v1/admin/analytics",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            resp = requests.get(
+                f"{api_base_url}/api/admin/analytics",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=15,
+            )
+        resp.raise_for_status()
+        adata = resp.json()
+    except Exception as error:
+        st.error(f"Failed to fetch system analytics: {error}")
+        return
+
+    qdata = adata.get("queries", {})
+    fdata = adata.get("feedback", {})
+    ddata = adata.get("documents", {})
+    sdata = adata.get("sources", {})
+
+    # Metric Row
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric(
+            "Total Queries",
+            qdata.get("total_queries", 0),
+            delta=f"{qdata.get('total_conversations', 0)} sessions",
+            delta_color="off",
+        )
+    with c2:
+        ans_rate = qdata.get("answerability_rate", 0.0)
+        unans_cnt = qdata.get("unanswerable_count", 0)
+        st.metric(
+            "Answerability",
+            f"{ans_rate:.0%}",
+            delta=f"{unans_cnt} gap{'s' if unans_cnt != 1 else ''}",
+            delta_color="inverse" if unans_cnt > 0 else "normal",
+        )
+    with c3:
+        avg_conf = qdata.get("average_confidence", 0.0)
+        conf_dist = qdata.get("confidence_distribution", {})
+        st.metric(
+            "Avg Confidence",
+            f"{avg_conf:.0%}",
+            delta=f"{conf_dist.get('high', 0)} High / {conf_dist.get('low', 0)} Low",
+            delta_color="normal",
+        )
+    with c4:
+        sat_rate = fdata.get("satisfaction_rate", 1.0)
+        st.metric(
+            "User Satisfaction",
+            f"{sat_rate:.0%}",
+            delta=f"👍 {fdata.get('positive', 0)} | 👎 {fdata.get('negative', 0)}",
+            delta_color="normal",
+        )
+
+    st.markdown("---")
+
+    col_docs, col_citations = st.columns(2)
+    with col_docs:
+        st.markdown("#### 📚 Knowledge Base Coverage")
+        st.caption(
+            f"**Total Documents:** {ddata.get('total_count', 0)} · "
+            f"**Total Corpus Size:** {ddata.get('total_size_kb', 0)} KB"
+        )
+        by_type = ddata.get("by_file_type", {})
+        if by_type:
+            st.markdown("**Documents by Format:**")
+            for ftype, count in by_type.items():
+                st.write(f"- `{ftype.upper()}`: **{count}** document(s)")
+        by_status = ddata.get("by_status", {})
+        if by_status:
+            st.caption("Status: " + ", ".join(f"{s}: {cnt}" for s, cnt in by_status.items()))
+
+    with col_citations:
+        st.markdown("#### 🎯 Top Cited Knowledge Sources")
+        top_cited = sdata.get("top_cited", [])
+        if top_cited:
+            for rank, item in enumerate(top_cited, 1):
+                st.write(f"**{rank}. {item.get('source')}** — cited `{item.get('citations_count')}` times")
+        else:
+            st.info("No citation data recorded yet.")
+
+    st.markdown("---")
+
+    col_gaps, col_feed = st.columns(2)
+    with col_gaps:
+        st.markdown("#### 🔍 Knowledge Gaps (Unanswered Queries)")
+        recent_unans = qdata.get("recent_unanswerable", [])
+        if recent_unans:
+            for unans in recent_unans:
+                with st.expander(f"Question Turn #{unans.get('message_id') or 'N/A'}"):
+                    st.caption(f"Timestamp: {unans.get('created_at') or 'Unknown'}")
+                    st.write(unans.get("answer_preview", "No answer preview"))
+        else:
+            st.success("No unanswerable queries detected!")
+
+    with col_feed:
+        st.markdown("#### 💬 User Feedback Audit")
+        neg_feed = fdata.get("recent_negative_feedback", [])
+        if neg_feed:
+            for item in neg_feed:
+                with st.expander(f"👎 Feedback: Message #{item.get('message_id') or 'N/A'}"):
+                    st.caption(f"Date: {item.get('created_at') or 'Unknown'}")
+                    if item.get("comment"):
+                        st.info(f"User comment: {item['comment']}")
+                    st.caption(item.get("answer_preview", ""))
+        else:
+            st.success("No negative feedback reported!")
+
+    st.markdown("---")
+    st.download_button(
+        "📥 Export Analytics Snapshot (JSON)",
+        data=json.dumps(adata, indent=2),
+        file_name="support_analytics_report.json",
+        mime="application/json",
+        use_container_width=False,
+    )
 
 
 def render_sources(citations):
@@ -260,6 +412,26 @@ def render_message_body(message: dict):
         f"Answerable {'✓' if answerable else '✗'}</div>",
         unsafe_allow_html=True,
     )
+
+    message_id = message.get("id")
+    conv_id = st.session_state.get(CURRENT_CONVERSATION_KEY)
+    if message_id and conv_id and not message.get("error"):
+        col1, col2, col3 = st.columns([0.08, 0.08, 0.84])
+        current_feedback = message.get("feedback")
+        with col1:
+            if st.button("👍", key=f"thumb_up_{message_id}", help="Accurate and helpful"):
+                if submit_feedback(conv_id, message_id, "positive"):
+                    message["feedback"] = "positive"
+                    st.rerun()
+        with col2:
+            if st.button("👎", key=f"thumb_down_{message_id}", help="Inaccurate or unhelpful"):
+                if submit_feedback(conv_id, message_id, "negative"):
+                    message["feedback"] = "negative"
+                    st.rerun()
+        if current_feedback:
+            with col3:
+                label = "✓ Marked as helpful" if current_feedback == "positive" else "✗ Marked as not helpful"
+                st.caption(label)
 
     persistence_error = message.get("persistence_error")
 
@@ -470,6 +642,23 @@ with st.sidebar:
                 refresh_conversation_list(conversation_api)
                 st.rerun()
 
+    current_msgs = get_messages(st.session_state)
+    if current_msgs:
+        formatted = []
+        for m in current_msgs:
+            if not m.get("content"):
+                continue
+            role = "User" if m.get("role") == "user" else "Assistant"
+            formatted.append(f"### {role}\n\n{m.get('content', '')}")
+        export_text = "# Conversation Export\n\n" + "\n\n".join(formatted)
+        st.download_button(
+            "📥 Export Chat",
+            data=export_text,
+            file_name="conversation_export.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+
     st.divider()
 
     st.markdown("**📚 Knowledge Base**")
@@ -591,6 +780,38 @@ with st.sidebar:
                     except requests.RequestException as error:
                         st.error(f"Delete failed: {error}")
 
+    if user_level.lower() == "admin":
+        with st.expander("📊 System Analytics"):
+            try:
+                analytics_resp = requests.get(
+                    f"{API_BASE_URL}/api/admin/analytics",
+                    headers={"Authorization": f"Bearer {st.session_state[TOKEN_KEY]}"},
+                    timeout=15,
+                )
+                if analytics_resp.status_code == 200:
+                    adata = analytics_resp.json()
+                    qdata = adata.get("queries", {})
+                    fdata = adata.get("feedback", {})
+                    ddata = adata.get("documents", {})
+
+                    st.markdown("**Quality Metrics**")
+                    st.caption(f"Queries: {qdata.get('total_queries', 0)} | Answerable: {qdata.get('answerability_rate', 0):.0%}")
+                    st.caption(f"Avg Confidence: {qdata.get('average_confidence', 0):.0%}")
+                    st.caption(f"User Satisfaction: {fdata.get('satisfaction_rate', 1.0):.0%} (👍 {fdata.get('positive', 0)} / 👎 {fdata.get('negative', 0)})")
+
+                    st.markdown("**Knowledge Base**")
+                    st.caption(f"Docs: {ddata.get('total_count', 0)} ({ddata.get('total_size_kb', 0)} KB)")
+
+                    top_s = adata.get("sources", {}).get("top_cited", [])
+                    if top_s:
+                        st.markdown("**Top Cited**")
+                        for s in top_s[:3]:
+                            st.caption(f"• {s['source']}: {s['citations_count']}x")
+                else:
+                    st.caption("Unable to load analytics.")
+            except Exception:
+                st.caption("Analytics service unavailable.")
+
     st.divider()
 
     st.markdown(
@@ -616,106 +837,105 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-for message in get_messages(st.session_state):
-    render_message(message)
+def render_chat_flow():
+    for message in get_messages(st.session_state):
+        render_message(message)
 
-query = st.chat_input("Ask a question about AcmeCloud...")
+    query = st.chat_input("Ask a question about AcmeCloud...")
 
-if query:
+    if query:
+        query_id = uuid.uuid4().hex
+        conversation_id = st.session_state.get(CURRENT_CONVERSATION_KEY)
 
-    # One correlation id per submission: stored on both turns and attached to
-    # the RAG trace, so a stored message maps to exactly one LangSmith run.
-    query_id = uuid.uuid4().hex
+        if not conversation_id:
+            created = conversation_api.create()
+            if created:
+                conversation_id = created["id"]
+                st.session_state[CURRENT_CONVERSATION_KEY] = conversation_id
 
-    conversation_id = st.session_state.get(CURRENT_CONVERSATION_KEY)
-
-    # A question always belongs to a conversation.
-    if not conversation_id:
-        created = conversation_api.create()
-
-        if created:
-            conversation_id = created["id"]
-            st.session_state[CURRENT_CONVERSATION_KEY] = conversation_id
-
-    # Persist the question before running RAG: if retrieval fails, the user's
-    # message is still stored (and never replaced by an invented answer).
-    if conversation_id:
-        conversation_api.add_message(
-            conversation_id,
-            role="user",
-            content=query,
-            query_id=query_id,
-        )
-
-    add_user_message(st.session_state, query)
-
-    with st.chat_message("user"):
-        st.markdown(query)
-
-    with st.chat_message("assistant"):
-
-        with st.status(
-            "Searching documentation...",
-            expanded=False,
-        ) as status:
-
-            data, error = ask_question(query, query_id)
-
-            if error:
-                status.update(
-                    label="Request failed",
-                    state="error",
-                )
-            else:
-                status.update(
-                    label="Verifying citations...",
-                )
-                status.update(
-                    label="Answer ready",
-                    state="complete",
-                )
-
-        if error:
-            add_assistant_message(
-                st.session_state, "", error=error, query_id=query_id
-            )
-            st.error(error)
-            st.caption("Your previous answers are still shown above.")
-        else:
-            answer = data.get("answer", "No answer was returned.")
-            citations = data.get("citations") or []
-
-            message = add_assistant_message(
-                st.session_state,
-                answer,
-                confidence=data.get("confidence"),
-                answerable=data.get("answerable"),
-                citations=citations,
+        if conversation_id:
+            conversation_api.add_message(
+                conversation_id,
+                role="user",
+                content=query,
                 query_id=query_id,
             )
 
-            if conversation_id:
-                stored = conversation_api.add_message(
-                    conversation_id,
-                    role="assistant",
-                    content=answer,
-                    query_id=query_id,
+        add_user_message(st.session_state, query)
+
+        with st.chat_message("user"):
+            st.markdown(query)
+
+        with st.chat_message("assistant"):
+            with st.status(
+                "Searching documentation...",
+                expanded=False,
+            ) as status:
+                data, error = ask_question(query, query_id, conversation_id)
+                if error:
+                    status.update(
+                        label="Request failed",
+                        state="error",
+                    )
+                else:
+                    status.update(
+                        label="Verifying citations...",
+                    )
+                    status.update(
+                        label="Answer ready",
+                        state="complete",
+                    )
+
+            if error:
+                add_assistant_message(
+                    st.session_state, "", error=error, query_id=query_id
+                )
+                st.error(error)
+                st.caption("Your previous answers are still shown above.")
+            else:
+                answer = data.get("answer", "No answer was returned.")
+                citations = data.get("citations") or []
+
+                message = add_assistant_message(
+                    st.session_state,
+                    answer,
                     confidence=data.get("confidence"),
                     answerable=data.get("answerable"),
                     citations=citations,
+                    query_id=query_id,
                 )
 
-                # A successful answer is never hidden by a storage failure.
-                # The notice rides on the message so it survives the rerun.
-                if stored is None:
-                    message["persistence_error"] = (
-                        "⚠️ The answer is shown, but it could not be saved "
-                        "to your history."
+                if conversation_id:
+                    stored = conversation_api.add_message(
+                        conversation_id,
+                        role="assistant",
+                        content=answer,
+                        query_id=query_id,
+                        confidence=data.get("confidence"),
+                        answerable=data.get("answerable"),
+                        citations=citations,
                     )
 
-            render_message_body(message)
+                    if stored and "id" in stored:
+                        message["id"] = stored["id"]
 
-    # Keep the sidebar's titles/order in step with the database.
-    refresh_conversation_list(conversation_api)
+                    if stored is None:
+                        message["persistence_error"] = (
+                            "⚠️ The answer is shown, but it could not be saved "
+                            "to your history."
+                        )
 
-    st.rerun()
+                render_message_body(message)
+
+        refresh_conversation_list(conversation_api)
+        st.rerun()
+
+
+if user_level.lower() == "admin":
+    tab_chat, tab_analytics = st.tabs(["💬 Support Chat", "📊 Analytics Dashboard"])
+    with tab_chat:
+        render_chat_flow()
+    with tab_analytics:
+        render_analytics_dashboard(API_BASE_URL, st.session_state[TOKEN_KEY])
+else:
+    render_chat_flow()

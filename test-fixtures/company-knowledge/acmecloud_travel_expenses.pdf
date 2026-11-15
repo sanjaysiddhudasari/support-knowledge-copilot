@@ -1,0 +1,81 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 1897 >>
+stream
+BT /F1 14 Tf 72 720 Td (Synthetic test content ? AcmeCloud is fictional. Do not treat these procedures as real company policy.
+
+ACMECLOUD_TRAVEL_TEST_6K2Q
+
+Travel and Expense Reimbursement
+
+Purpose
+This article explains how AcmeCloud employees book work travel and
+claim expense reimbursements.
+
+Scope
+Applies to all full-time employees booking travel for AcmeCloud business
+purposes. Does not apply to local commuting or client-reimbursed travel.
+
+Owner
+People Operations, travel desk at travel@acmecloud.example \(fictional\).
+
+Last reviewed
+2026-10-02.
+
+Booking travel
+1. Obtain manager approval by opening a Travel Request in Springboard before
+   booking.
+2. Book flights and hotels through the Concur platform using the corporate
+   card. Do not book personal upgrades without approval.
+3. Choose economy flights unless the route exceeds six hours, in which case
+   premium economy is allowed.
+4. Save the email confirmation to the request for audit.
+
+Per-diem and expenses
+Reimbursable: meals not provided by the event, ground transport, working
+internet, and baggage fees. Not reimbursable: personal entertainment,
+alcohol over 50 USD daily, and costs for family members.
+
+Submit an expense report in Concur within 15 days of the return date. Attach
+a receipt for any single expense over 75 USD; below that, a line-item
+description is acceptable. Accounts Payable targets reimbursement within 10
+business days after approval.
+
+Exceptions and escalation
+If travel must be approved outside business hours, contact the on-call travel
+coordinator. Expense reports older than 45 days require finance director
+approval before payment.
+
+FAQ
+- What is the travel expense marker to verify indexing?
+  ACMECLOUD_TRAVEL_TEST_6K2Q appears in this article's introduction.
+- Reimbursement is credited to the employee's default bank account on file,
+  with a notification from the payroll system.
+) Tj ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000185 00000 n 
+0000000311 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+2260
+%%EOF

@@ -6,7 +6,7 @@ from app.auth.client import supabase, supabase_admin
 from app.auth.models import LoginRequest, SignupRequest
 
 router = APIRouter(
-    prefix="/api/auth",
+    prefix="/auth",
     tags=["Auth"],
 )
 

@@ -3,12 +3,15 @@ import os
 import tempfile
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
 from app.api.conversations import router as conversations_router
 from app.api.ingestion import router as ingestion_router
 from app.api.auth import router as auth_router
+from app.api.analytics import router as analytics_router
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -63,11 +66,32 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-app.include_router(router)
-app.include_router(conversations_router)
-app.include_router(ingestion_router)
-app.include_router(auth_router)
+# API v1 Router (Primary versioned API)
+api_v1_router = APIRouter(prefix="/api/v1")
+api_v1_router.include_router(auth_router)
+api_v1_router.include_router(router)
+api_v1_router.include_router(conversations_router)
+api_v1_router.include_router(ingestion_router)
+api_v1_router.include_router(analytics_router)
+
+# Legacy unversioned API router for backward compatibility
+legacy_api_router = APIRouter(prefix="/api")
+legacy_api_router.include_router(auth_router)
+legacy_api_router.include_router(router)
+legacy_api_router.include_router(conversations_router)
+legacy_api_router.include_router(ingestion_router)
+legacy_api_router.include_router(analytics_router)
+
+app.include_router(api_v1_router)
+app.include_router(legacy_api_router)
 
 
 @app.get("/health")
