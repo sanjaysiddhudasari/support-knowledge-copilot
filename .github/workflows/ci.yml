@@ -27,6 +27,7 @@ jobs:
           QDRANT_API_KEY: ""
           SUPABASE_URL: "https://example.supabase.co"
           SUPABASE_KEY: "test-anon-key"
+          SUPABASE_SERVICE_KEY: "test-service-key"
           DEEPSEEK_API_KEY: "test-deepseek-key"
         run: pytest tests/test_improvements.py -v
 
